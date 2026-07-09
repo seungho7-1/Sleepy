@@ -1,4 +1,4 @@
-package com.sleepyproject.sleepy_backend.domain;
+package com.sleepyproject.sleepy_backend.domain.member;
 
 public enum Role {
     BUYER,
