@@ -45,4 +45,9 @@ public class ProductResponse {
     private LocalDate releaseDate; // 출시일
     
     private List<String> tags; // 태그
+
+    private String videoUrl; // 비디오 파일 경로 혹은 링크
+    private String videoType; // 비디오 타입 (FILE, LINK, NONE)
+    private List<String> imageUrls; // 최대 5개 이미지 리스트
+    private List<String> descriptionImageUrls; // 상세 설명 이미지 URL 목록
 }

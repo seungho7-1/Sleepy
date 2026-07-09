@@ -1,40 +1,43 @@
 package com.sleepyproject.sleepy_backend.api.upload;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/upload")
+@RequiredArgsConstructor
 public class UploadController {
 
-    @Value("${upload.path:uploads/}") // application.properties에서 설정, 기본값 uploads/
-    private String uploadDir;
+    private final S3Client s3Client;
+
+    @Value("${aws.s3.bucket}")
+    private String bucketName;
+
+    @Value("${aws.s3.region}")
+    private String region;
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<Map<String, String>> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "type", defaultValue = "general") String type) {
+            
         if (file.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "파일이 없습니다."));
         }
 
         try {
-            // 업로드 디렉토리 생성
-            File dir = new File(uploadDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-
             // 원본 파일명에서 확장자 추출
             String originalFilename = file.getOriginalFilename();
             String extension = "";
@@ -42,16 +45,47 @@ public class UploadController {
                 extension = originalFilename.substring(originalFilename.lastIndexOf("."));
             }
 
-            // 고유한 파일명 생성 (UUID)
-            String savedFilename = UUID.randomUUID().toString() + extension;
-            Path filePath = Paths.get(uploadDir, savedFilename);
+            // 업로드 타입에 따라 S3 물리 폴더 경로(Key Prefix) 분기 처리
+            String folderPrefix;
+            switch (type) {
+                case "product-main":
+                    folderPrefix = "products/main/";
+                    break;
+                case "product-detail":
+                    folderPrefix = "products/detail/";
+                    break;
+                case "product-video":
+                    folderPrefix = "products/video/";
+                    break;
+                case "post":
+                    folderPrefix = "community/posts/";
+                    break;
+                default:
+                    folderPrefix = "general/";
+                    break;
+            }
 
-            // 파일 저장
-            Files.write(filePath, file.getBytes());
+            // 고유한 파일명 생성 (S3 Key = 폴더 경로 + UUID파일명)
+            String savedFilename = folderPrefix + UUID.randomUUID().toString() + extension;
 
-            // 클라이언트가 접근할 수 있는 URL 반환
-            // 서버 호스트/포트가 클라이언트에서 접근 가능해야 하므로 보통 상대경로 또는 설정된 호스트를 반환
-            String fileUrl = "http://localhost:8383/uploads/" + savedFilename;
+            // Content-Type 결정 (기본값 application/octet-stream)
+            String contentType = file.getContentType();
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+
+            // S3 업로드 요청 객체 생성
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(savedFilename)
+                    .contentType(contentType)
+                    .build();
+
+            // S3에 스트림으로 파일 업로드
+            s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+
+            // 업로드 완료된 S3 파일의 공개 URL 주소 생성
+            String fileUrl = String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, savedFilename);
 
             Map<String, String> response = new HashMap<>();
             response.put("url", fileUrl);
@@ -61,7 +95,7 @@ public class UploadController {
         } catch (IOException e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "파일 업로드 중 오류가 발생했습니다."));
+                    .body(Map.of("error", "S3 파일 업로드 중 오류가 발생했습니다."));
         }
     }
 }

@@ -18,9 +18,27 @@ public class DummyDataInit {
 
     private final ProductRepository productRepository;
     private final MemberRepository memberRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @PostConstruct
     public void init() {
+        try {
+            // MySQL에서 기존 컬럼들의 길이를 2000자로 늘려주기 위해 ALTER TABLE 실행
+            jdbcTemplate.execute("ALTER TABLE product MODIFY image_url VARCHAR(2000)");
+            jdbcTemplate.execute("ALTER TABLE product MODIFY purchase_url VARCHAR(2000)");
+            jdbcTemplate.execute("ALTER TABLE product MODIFY video_url VARCHAR(2000)");
+            jdbcTemplate.execute("ALTER TABLE product MODIFY description VARCHAR(2000)");
+            
+            // 상세 이미지 컬럼 추가
+            try {
+                jdbcTemplate.execute("ALTER TABLE product ADD COLUMN description_image_url VARCHAR(2000) NULL");
+            } catch (Exception ex) {
+                // 이미 존재하는 컬럼일 경우 예외 무시
+            }
+        } catch (Exception e) {
+            // 이미 변경되었거나 에러 발생 시 무시하고 부팅 진행
+        }
+
         if (productRepository.count() == 0) {
             
             Member seller1 = Member.builder()

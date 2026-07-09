@@ -7,6 +7,7 @@ import com.sleepyproject.sleepy_backend.api.board.dto.CommentRequest;
 import com.sleepyproject.sleepy_backend.api.board.dto.CommentResponse;
 import com.sleepyproject.sleepy_backend.api.board.dto.PostRequest;
 import com.sleepyproject.sleepy_backend.api.board.dto.PostResponse;
+import com.sleepyproject.sleepy_backend.api.board.dto.MyCommentResponse;
 import com.sleepyproject.sleepy_backend.domain.board.BoardType;
 import com.sleepyproject.sleepy_backend.domain.board.Comment;
 import com.sleepyproject.sleepy_backend.domain.board.Post;
@@ -109,6 +110,12 @@ public class BoardService {
                 .content(request.getContent())
                 .createdAt(LocalDateTime.now());
 
+        if (request.getParentId() != null) {
+            Comment parent = commentRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new IllegalArgumentException("부모 댓글을 찾을 수 없습니다."));
+            builder.parent(parent);
+        }
+
         if ("POST".equalsIgnoreCase(request.getTargetType())) {
             Post post = postRepository.findById(request.getTargetId())
                     .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
@@ -143,7 +150,89 @@ public class BoardService {
         }
 
         return comments.stream().map(c -> new CommentResponse(
-                c.getId(), c.getContent(), c.getMember().getNickname(), c.getCreatedAt()
+                c.getId(), c.getContent(), c.getMember().getNickname(), c.getCreatedAt(),
+                c.getParent() != null ? c.getParent().getId() : null
         )).collect(Collectors.toList());
+    }
+
+    /**
+     * 회원이 작성한 게시글 목록 조회
+     */
+    @Transactional(readOnly = true)
+    public List<PostResponse> getMyPosts(String email, String type) {
+        List<Post> posts;
+        if ("MEDIA".equalsIgnoreCase(type)) {
+            posts = postRepository.findByMemberEmailAndBoardTypeOrderByCreatedAtDesc(email, BoardType.MEDIA);
+        } else {
+            // MEDIA를 제외한 일반 텍스트 게시글들 조회
+            posts = postRepository.findByMemberEmailAndBoardTypeNotOrderByCreatedAtDesc(email, BoardType.MEDIA);
+        }
+        return posts.stream().map(p -> new PostResponse(
+                p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
+                p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt()
+        )).collect(Collectors.toList());
+    }
+
+    /**
+     * 회원이 작성한 댓글 목록 조회 (원본 대상 타이틀 정보 포함)
+     */
+    @Transactional(readOnly = true)
+    public List<MyCommentResponse> getMyComments(String email) {
+        List<Comment> comments = commentRepository.findByMemberEmailOrderByCreatedAtDesc(email);
+        return comments.stream().map(c -> {
+            Long targetId = null;
+            String targetType = null;
+            String targetTitle = "삭제된 원본 대상";
+
+            if (c.getPost() != null) {
+                targetId = c.getPost().getId();
+                targetType = "POST";
+                targetTitle = c.getPost().getTitle();
+            } else if (c.getReview() != null) {
+                targetId = c.getReview().getId();
+                targetType = "REVIEW";
+                if (c.getReview().getProduct() != null) {
+                    targetTitle = c.getReview().getProduct().getName() + " 리뷰";
+                } else {
+                    targetTitle = "상품 리뷰";
+                }
+            }
+
+            return new MyCommentResponse(
+                    c.getId(),
+                    c.getContent(),
+                    c.getMember().getNickname(),
+                    c.getCreatedAt(),
+                    targetId,
+                    targetType,
+                    targetTitle
+            );
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 댓글 수정
+     */
+    @Transactional
+    public void updateComment(Long commentId, CommentRequest request, String email) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+        if (!comment.getMember().getEmail().equalsIgnoreCase(email)) {
+            throw new IllegalArgumentException("댓글 수정 권한이 없습니다.");
+        }
+        comment.updateContent(request.getContent());
+    }
+
+    /**
+     * 댓글 삭제
+     */
+    @Transactional
+    public void deleteComment(Long commentId, String email) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+        if (!comment.getMember().getEmail().equalsIgnoreCase(email)) {
+            throw new IllegalArgumentException("댓글 삭제 권한이 없습니다.");
+        }
+        commentRepository.delete(comment);
     }
 }

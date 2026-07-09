@@ -111,31 +111,46 @@ public class ProductController {
     @GetMapping("/crawl")
     public ResponseEntity<?> crawlProductUrl(@RequestParam String url) {
         try {
-            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            // Jsoup을 사용해 대상 사이트에 접속하여 HTML 문서를 읽어옵니다.
+            org.jsoup.Connection connection = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .timeout(6000)
+                    .referrer("https://www.google.com");
             
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>("parameters", headers);
+            Document doc = connection.get();
             
-            // Encode the url properly
-            String apiUrl = "https://api.dub.co/metatags?url=" + java.net.URLEncoder.encode(url, "UTF-8");
-            
-            org.springframework.http.ResponseEntity<Map> responseEntity = restTemplate.exchange(
-                    apiUrl, 
-                    org.springframework.http.HttpMethod.GET, 
-                    entity, 
-                    Map.class);
-            
-            Map<String, Object> response = responseEntity.getBody();
-            
-            if (response == null) {
-                throw new RuntimeException("Failed to fetch metadata");
+            // 1. 상품명 (OpenGraph og:title 우선, 없으면 페이지 타이틀)
+            String name = "";
+            Element ogTitle = doc.selectFirst("meta[property=og:title]");
+            if (ogTitle != null) {
+                name = ogTitle.attr("content");
+            } else {
+                name = doc.title();
             }
-            
+
+            // 2. 대표 이미지 (OpenGraph og:image)
+            String imageUrl = "";
+            Element ogImage = doc.selectFirst("meta[property=og:image]");
+            if (ogImage != null) {
+                imageUrl = ogImage.attr("content");
+            }
+
+            // 3. 설명 (OpenGraph og:description 우선, 없으면 일반 meta description)
+            String description = "";
+            Element ogDesc = doc.selectFirst("meta[property=og:description]");
+            if (ogDesc != null) {
+                description = ogDesc.attr("content");
+            } else {
+                Element metaDesc = doc.selectFirst("meta[name=description]");
+                if (metaDesc != null) {
+                    description = metaDesc.attr("content");
+                }
+            }
+
             Map<String, String> data = new HashMap<>();
-            data.put("name", (String) response.getOrDefault("title", ""));
-            data.put("imageUrl", (String) response.getOrDefault("image", ""));
-            data.put("description", (String) response.getOrDefault("description", ""));
+            data.put("name", name);
+            data.put("imageUrl", imageUrl);
+            data.put("description", description);
 
             return ResponseEntity.ok(data);
         } catch (Exception e) {

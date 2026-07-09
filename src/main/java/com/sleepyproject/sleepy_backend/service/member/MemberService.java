@@ -146,7 +146,7 @@ public class MemberService {
                             p.getName(),
                             p.getPrice(),
                             p.getDescription(),
-                            p.getImageUrl(),
+                            p.getFirstImageUrl(),
                             p.getShopName(),
                             p.getPurchaseUrl(),
                             p.getSeller().getId(),
@@ -155,7 +155,11 @@ public class MemberService {
                             p.getScent(),
                             p.getColor(),
                             p.getReleaseDate(),
-                            tags
+                            tags,
+                            p.getVideoUrl(),
+                            p.getVideoType(),
+                            p.getImageUrlList(),
+                            p.getDescriptionImageUrlList()
                     );
                 })
                 .collect(Collectors.toList());

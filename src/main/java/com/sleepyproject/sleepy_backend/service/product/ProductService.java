@@ -37,6 +37,7 @@ public class ProductService {
     private final com.sleepyproject.sleepy_backend.repository.product.WishlistRepository wishlistRepository;
     private final TagRepository tagRepository;
     private final ProductTagRepository productTagRepository;
+    private final com.sleepyproject.sleepy_backend.repository.review.ReviewRepository reviewRepository;
 
     /**
      * 전체 상품 목록 조회 로직
@@ -59,12 +60,15 @@ public class ProductService {
         Member seller = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
 
+        String imagesString = request.getImageUrls() != null ? String.join(",", request.getImageUrls()) : "";
+        String descImagesString = request.getDescriptionImageUrls() != null ? String.join(",", request.getDescriptionImageUrls()) : "";
+
         // 2. 전달받은 데이터를 바탕으로 Product 엔티티를 빌드(새 필드 반영)
         Product product = Product.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .price(request.getPrice())
-                .imageUrl(request.getImageUrl()) // 이미지 저장 주소 추가
+                .imageUrl(imagesString) // 이미지 저장 주소 추가
                 .shopName(request.getShopName())   // 슬라임 마켓 스토어명 추가
                 .purchaseUrl(request.getPurchaseUrl()) // 외부 구매 주소 링크 추가
                 .capacity(request.getCapacity())
@@ -74,6 +78,9 @@ public class ProductService {
                 .releaseDate(request.getReleaseDate())
                 .createdAt(LocalDateTime.now()) // 현재 시간 기록
                 .seller(seller)
+                .videoUrl(request.getVideoUrl())
+                .videoType(request.getVideoType())
+                .descriptionImageUrl(descImagesString)
                 .build();
 
         productRepository.save(product);
@@ -112,19 +119,25 @@ public class ProductService {
             throw new RuntimeException("본인이 등록한 상품만 수정할 수 있습니다.");
         }
 
+        String imagesString = request.getImageUrls() != null ? String.join(",", request.getImageUrls()) : "";
+        String descImagesString = request.getDescriptionImageUrls() != null ? String.join(",", request.getDescriptionImageUrls()) : "";
+
         // 4. 엔티티 수정 메서드 호출 (더티 체킹에 의해 트랜잭션 종료 시 반영됨)
         product.update(
                 request.getName(),
                 request.getPrice(),
                 request.getDescription(),
-                request.getImageUrl(),  // 이미지 경로 추가
+                imagesString,  // 이미지 경로 추가
                 request.getShopName(),  // 마켓 스토어명 추가
                 request.getPurchaseUrl(), // 외부 구매 링크 추가
                 request.getCapacity(),
                 request.getTexture(),
                 request.getScent(),
                 request.getColor(),
-                request.getReleaseDate()
+                request.getReleaseDate(),
+                request.getVideoUrl(),
+                request.getVideoType(),
+                descImagesString
         );
         
         productTagRepository.deleteByProduct(product);
@@ -144,7 +157,6 @@ public class ProductService {
      * @param email     삭제를 요청한 유저 이메일 (본인 소유 체크용)
      */
     @Transactional
-    // @CacheEvict(value = "productDetail", key = "#productId")
     public void delete(Long productId, String email) {
         // 1. 유저 및 상품 정보 조회
         Member seller = memberRepository.findByEmail(email)
@@ -158,7 +170,12 @@ public class ProductService {
             throw new RuntimeException("본인이 등록한 상품만 삭제할 수 있습니다.");
         }
 
-        // 3. DB에서 삭제
+        // 3. 연관 데이터 선제 삭제 (외래키 제약조건 위배 방지)
+        productTagRepository.deleteByProduct(product);
+        wishlistRepository.deleteByProduct(product);
+        reviewRepository.deleteByProductId(productId);
+
+        // 4. DB에서 삭제
         productRepository.delete(product);
     }
 
@@ -191,7 +208,7 @@ public class ProductService {
                     p.getName(),
                     p.getPrice(),
                     p.getDescription(),
-                    p.getImageUrl(),          // 응답 DTO에 이미지 주소 추가
+                    p.getFirstImageUrl(),          // 첫번째 대표 이미지 노출 (하위호환용)
                     p.getShopName(),          // 스토어명 추가
                     p.getPurchaseUrl(),       // 결제 주소 링크 추가
                     p.getSeller().getId(),    // 등록한 판매자 ID (프론트 소유권 판별용)
@@ -200,7 +217,11 @@ public class ProductService {
                     p.getScent(),
                     p.getColor(),
                     p.getReleaseDate(),
-                    tags
+                    tags,
+                    p.getVideoUrl(),
+                    p.getVideoType(),
+                    p.getImageUrlList(),
+                    p.getDescriptionImageUrlList()
             );
         });
     }
@@ -227,7 +248,7 @@ public class ProductService {
                 product.getName(),
                 product.getPrice(),
                 product.getDescription(),
-                product.getImageUrl(),          // 대표 이미지 경로 추가
+                product.getFirstImageUrl(),          // 첫번째 대표 이미지 노출 (하위호환용)
                 product.getShopName(),          // 마켓 스토어명 추가
                 product.getPurchaseUrl(),        // 외부 결제 링크 추가
                 product.getSeller().getId(),      // 등록한 판매자 ID (프론트 소유권 판별용)
@@ -236,7 +257,11 @@ public class ProductService {
                 product.getScent(),
                 product.getColor(),
                 product.getReleaseDate(),
-                tags
+                tags,
+                product.getVideoUrl(),
+                product.getVideoType(),
+                product.getImageUrlList(),
+                product.getDescriptionImageUrlList()
         );
     }
 
@@ -285,10 +310,11 @@ public class ProductService {
                     .map(pt -> pt.getTag().getName())
                     .collect(Collectors.toList());
             return new ProductResponse(
-                    p.getId(), p.getName(), p.getPrice(), p.getDescription(), p.getImageUrl(),
+                    p.getId(), p.getName(), p.getPrice(), p.getDescription(), p.getFirstImageUrl(),
                     p.getShopName(), p.getPurchaseUrl(), p.getSeller().getId(),
-                    p.getCapacity(), p.getTexture(), p.getScent(), p.getColor(), p.getReleaseDate(), tags
+                    p.getCapacity(), p.getTexture(), p.getScent(), p.getColor(), p.getReleaseDate(), tags,
+                    p.getVideoUrl(), p.getVideoType(), p.getImageUrlList(), p.getDescriptionImageUrlList()
             );
-        }).toList();
+        }).collect(Collectors.toList());
     }
 }

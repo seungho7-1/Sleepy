@@ -49,4 +49,38 @@ public class BoardController {
     public ResponseEntity<?> getComments(@RequestParam Long targetId, @RequestParam String targetType) {
         return ResponseEntity.ok(boardService.getComments(targetId, targetType));
     }
+
+    @GetMapping("/my-posts")
+    public ResponseEntity<?> getMyPosts(@RequestParam(required = false) String type, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+        return ResponseEntity.ok(boardService.getMyPosts(authentication.getName(), type));
+    }
+
+    @GetMapping("/my-comments")
+    public ResponseEntity<?> getMyComments(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+        return ResponseEntity.ok(boardService.getMyComments(authentication.getName()));
+    }
+
+    @PutMapping("/comments/{id}")
+    public ResponseEntity<?> updateComment(@PathVariable Long id, @RequestBody CommentRequest request, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+        boardService.updateComment(id, request, authentication.getName());
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/comments/{id}")
+    public ResponseEntity<?> deleteComment(@PathVariable Long id, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+        boardService.deleteComment(id, authentication.getName());
+        return ResponseEntity.ok().build();
+    }
 }
