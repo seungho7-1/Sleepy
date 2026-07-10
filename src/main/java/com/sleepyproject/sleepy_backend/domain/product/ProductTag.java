@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * 상품과 해시태그 간의 다대다(N:M) 연관관계를 해소하기 위한 중간 매핑 엔티티 클래스입니다.
+ */
 @Entity
 @Getter
 @NoArgsConstructor

@@ -27,6 +27,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 커뮤니티 게시판 및 댓글 처리를 담당하는 서비스 클래스입니다.
+ */
 @Service
 @RequiredArgsConstructor
 public class BoardService {
@@ -156,7 +159,11 @@ public class BoardService {
     }
 
     /**
-     * 회원이 작성한 게시글 목록 조회
+     * 회원이 작성한 게시글 목록을 조회합니다.
+     *
+     * @param email 유저 이메일
+     * @param type  조회할 게시글 타입 필터 (예: MEDIA 등)
+     * @return 내가 쓴 게시글 목록 (PostResponse 리스트)
      */
     @Transactional(readOnly = true)
     public List<PostResponse> getMyPosts(String email, String type) {
@@ -174,7 +181,10 @@ public class BoardService {
     }
 
     /**
-     * 회원이 작성한 댓글 목록 조회 (원본 대상 타이틀 정보 포함)
+     * 회원이 작성한 댓글 목록을 조회합니다. (원글 제목 등 상세 정보 매핑 포함)
+     *
+     * @param email 유저 이메일
+     * @return 내가 쓴 댓글 목록 (MyCommentResponse 리스트)
      */
     @Transactional(readOnly = true)
     public List<MyCommentResponse> getMyComments(String email) {
@@ -211,7 +221,13 @@ public class BoardService {
     }
 
     /**
-     * 댓글 수정
+     * 특정 댓글의 내용을 수정합니다.
+     * - 자신이 작성한 댓글만 수정 가능합니다.
+     *
+     * @param commentId 수정할 댓글 ID
+     * @param request   수정할 새 댓글 데이터 DTO
+     * @param email     수정을 요청한 유저 이메일
+     * @throws IllegalArgumentException 대상 댓글이 존재하지 않거나 권한이 없는 경우
      */
     @Transactional
     public void updateComment(Long commentId, CommentRequest request, String email) {
@@ -224,7 +240,12 @@ public class BoardService {
     }
 
     /**
-     * 댓글 삭제
+     * 특정 댓글을 삭제합니다.
+     * - 자신이 작성한 댓글만 삭제 가능합니다.
+     *
+     * @param commentId 삭제할 댓글 ID
+     * @param email     삭제를 요청한 유저 이메일
+     * @throws IllegalArgumentException 대상 댓글이 존재하지 않거나 권한이 없는 경우
      */
     @Transactional
     public void deleteComment(Long commentId, String email) {

@@ -9,6 +9,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * 상품 찜하기(보관함) 기록을 저장하는 도메인 엔티티 클래스입니다.
+ */
 @Entity
 @Getter
 @NoArgsConstructor

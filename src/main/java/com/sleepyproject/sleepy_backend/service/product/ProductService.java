@@ -16,6 +16,16 @@ import com.sleepyproject.sleepy_backend.domain.product.Tag;
 import com.sleepyproject.sleepy_backend.domain.product.ProductTag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -316,5 +326,57 @@ public class ProductService {
                     p.getVideoUrl(), p.getVideoType(), p.getImageUrlList(), p.getDescriptionImageUrlList()
             );
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * 외부 슬라임 상품 쇼핑몰 URL을 크롤링하여 상품 정보를 추출합니다.
+     * - OpenGraph 메타 태그를 기반으로 상품명, 대표 이미지, 상세 설명을 파싱합니다.
+     *
+     * @param url 크롤링할 외부 상품 판매 링크
+     * @return 파싱된 상품 정보 (name, imageUrl, description) Map 반환
+     * @throws IOException Jsoup 연결 실패 또는 읽기 오류 발생 시
+     */
+    public Map<String, String> crawlProductUrl(String url) throws IOException {
+        org.jsoup.Connection connection = Jsoup.connect(url)
+                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .timeout(6000)
+                .referrer("https://www.google.com");
+
+        Document doc = connection.get();
+
+        // 1. 상품명 (OpenGraph og:title 우선, 없으면 페이지 타이틀)
+        String name = "";
+        Element ogTitle = doc.selectFirst("meta[property=og:title]");
+        if (ogTitle != null) {
+            name = ogTitle.attr("content");
+        } else {
+            name = doc.title();
+        }
+
+        // 2. 대표 이미지 (OpenGraph og:image)
+        String imageUrl = "";
+        Element ogImage = doc.selectFirst("meta[property=og:image]");
+        if (ogImage != null) {
+            imageUrl = ogImage.attr("content");
+        }
+
+        // 3. 설명 (OpenGraph og:description 우선, 없으면 일반 meta description)
+        String description = "";
+        Element ogDesc = doc.selectFirst("meta[property=og:description]");
+        if (ogDesc != null) {
+            description = ogDesc.attr("content");
+        } else {
+            Element metaDesc = doc.selectFirst("meta[name=description]");
+            if (metaDesc != null) {
+                description = metaDesc.attr("content");
+            }
+        }
+
+        Map<String, String> data = new HashMap<>();
+        data.put("name", name);
+        data.put("imageUrl", imageUrl);
+        data.put("description", description);
+
+        return data;
     }
 }

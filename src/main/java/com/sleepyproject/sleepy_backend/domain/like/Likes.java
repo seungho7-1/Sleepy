@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * 게시글 또는 댓글/리뷰에 등록된 좋아요(추천) 기록을 저장하는 도메인 엔티티 클래스입니다.
+ */
 @Entity
 @Getter
 @NoArgsConstructor

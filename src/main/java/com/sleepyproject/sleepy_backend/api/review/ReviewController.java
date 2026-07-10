@@ -12,6 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 상품 리뷰 관련 HTTP 요청을 수신 및 처리하는 컨트롤러 클래스입니다.
+ */
 @RestController
 @RequestMapping("/api/reviews")
 @RequiredArgsConstructor
@@ -19,7 +22,13 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
-    // 특정 상품의 리뷰 목록 조회 (페이징, 비로그인 유저도 볼 수 있음)
+    /**
+     * 특정 상품에 대해 등록된 리뷰 목록을 페이징하여 조회합니다. (비로그인 허용)
+     *
+     * @param productId 상품 ID
+     * @param pageable  페이징 정보 (기본값: 최신순 20개)
+     * @return 페이징 처리된 리뷰 목록 DTO
+     */
     @GetMapping("/product/{productId}")
     public ResponseEntity<Page<ReviewResponse>> getReviewsByProduct(
             @PathVariable("productId") Long productId,
@@ -29,7 +38,13 @@ public class ReviewController {
         return ResponseEntity.ok(responses);
     }
 
-    // 리뷰 작성 (로그인한 유저만 작성 가능)
+    /**
+     * 특정 상품에 대한 리뷰를 작성합니다. (인증 필요)
+     *
+     * @param request        작성할 리뷰 정보 DTO
+     * @param authentication 현재 로그인된 유저 인증 정보
+     * @return 생성된 리뷰 ID
+     */
     @PostMapping
     public ResponseEntity<Long> createReview(
             @RequestBody ReviewRequest request,

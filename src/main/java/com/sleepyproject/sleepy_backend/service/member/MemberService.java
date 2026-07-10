@@ -19,6 +19,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 회원 관련 비즈니스 로직을 처리하는 서비스 클래스입니다.
+ */
 @Service
 @RequiredArgsConstructor
 public class MemberService {
@@ -76,7 +79,7 @@ public class MemberService {
      * @throws IllegalArgumentException 가입되지 않은 이메일이거나 비밀번호가 불일치할 경우 발생
      */
     public LoginResponse login(LoginRequest loginRequest) {
-        // 1. 입력받은 이메일로 데이터베이스에서 회원 조회
+        // 1. 입력받은 이메일로 데이터베이스에서 회원 조회(람다식 표현)
         Member member = memberRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저"));
 

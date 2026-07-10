@@ -5,6 +5,10 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * 회원(사용자) 정보를 정의하는 도메인 엔티티 클래스입니다.
+ * - 로그인 정보(이메일, 비밀번호), 프로필 정보(닉네임, 역할), 가입일 기록
+ */
 @Entity
 @Getter
 @NoArgsConstructor
@@ -38,5 +42,9 @@ public class Member {
      */
     public void updateNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public void updateRole(Role role) {
+        this.role = role;
     }
 }

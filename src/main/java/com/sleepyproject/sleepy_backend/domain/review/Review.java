@@ -9,6 +9,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * 상품에 대해 작성된 리뷰 정보를 저장하는 도메인 엔티티 클래스입니다.
+ */
 @Entity
 @Getter
 @NoArgsConstructor
@@ -49,10 +52,16 @@ public class Review {
         this.createdAt = createdAt;
     }
     
+    /**
+     * 리뷰 좋아요 수를 1 증가시킵니다.
+     */
     public void incrementLikeCount() {
         this.likeCount++;
     }
     
+    /**
+     * 리뷰 좋아요 수를 1 감소시킵니다.
+     */
     public void decrementLikeCount() {
         if (this.likeCount > 0) {
             this.likeCount--;

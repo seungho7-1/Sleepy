@@ -11,6 +11,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 게시글 또는 리뷰에 작성되는 댓글 정보를 저장하는 도메인 엔티티 클래스입니다.
+ * - 대댓글(대댓글 관계) 처리를 위한 셀프 조인(parent, children) 연관관계를 포함합니다.
+ */
 @Entity
 @Getter
 @NoArgsConstructor
@@ -44,6 +48,11 @@ public class Comment {
 
     private LocalDateTime createdAt;
 
+    /**
+     * 댓글 내용을 수정합니다.
+     *
+     * @param content 수정할 새 댓글 내용
+     */
     public void updateContent(String content) {
         this.content = content;
     }

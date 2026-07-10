@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 
+/**
+ * 슬라임 마켓에 등록된 상품 정보를 나타내는 도메인 엔티티 클래스입니다.
+ */
 @Entity
 @Getter
 @Builder
@@ -93,7 +96,7 @@ public class Product {
     }
 
     /**
-     * 상품 정보 수정 메서드
+     * 상품 정보를 수정합니다. (더티 체킹 반영)
      */
     public void update(String name, int price, String description, String imageUrl, String shopName, String purchaseUrl, 
                        Integer capacity, String texture, String scent, String color, LocalDate releaseDate,
@@ -114,6 +117,11 @@ public class Product {
         this.descriptionImageUrl = descriptionImageUrl;
     }
 
+    /**
+     * 쉼표(,)로 구분된 이미지 경로 중 첫 번째 이미지(대표 이미지)를 가져옵니다.
+     *
+     * @return 대표 이미지 URL 문자열 (이미지가 없을 시 빈 문자열 반환)
+     */
     public String getFirstImageUrl() {
         if (imageUrl == null || imageUrl.isBlank()) {
             return "";
@@ -121,6 +129,11 @@ public class Product {
         return imageUrl.split(",")[0];
     }
 
+    /**
+     * 쉼표(,)로 연결되어 저장된 상품 추가 이미지 URL 전체를 리스트로 분할하여 반환합니다.
+     *
+     * @return 이미지 URL 리스트
+     */
     public java.util.List<String> getImageUrlList() {
         if (imageUrl == null || imageUrl.isBlank()) {
             return java.util.Collections.emptyList();
@@ -128,6 +141,11 @@ public class Product {
         return java.util.Arrays.asList(imageUrl.split(","));
     }
 
+    /**
+     * 쉼표(,)로 연결되어 저장된 상품 상세 페이지 설명용 이미지 URL 전체를 리스트로 분할하여 반환합니다.
+     *
+     * @return 상세 설명 이미지 URL 리스트
+     */
     public java.util.List<String> getDescriptionImageUrlList() {
         if (descriptionImageUrl == null || descriptionImageUrl.isBlank()) {
             return java.util.Collections.emptyList();

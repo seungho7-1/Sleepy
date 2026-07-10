@@ -31,3 +31,5 @@ bin/
 # Gradle
 .gradle/
 build/
+# Custom Secrets
+application-secret.properties

@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 관리자(ADMIN) 권한 페이지에 필요한 통계 및 회원 상태 조회를 처리하는 컨트롤러 클래스입니다.
+ */
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
@@ -23,6 +26,11 @@ public class AdminController {
     private final MemberRepository memberRepository;
     private final ProductRepository productRepository;
 
+    /**
+     * 관리자 대시보드 통계 자료를 조회합니다. (회원 수, 등록된 상품 수, 전체 회원 목록)
+     *
+     * @return 대시보드 통계 정보 Map
+     */
     @GetMapping("/dashboard")
     public ResponseEntity<?> getDashboardStats() {
         long totalMembers = memberRepository.count();

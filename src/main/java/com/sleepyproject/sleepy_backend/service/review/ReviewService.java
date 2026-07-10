@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+/**
+ * 상품 리뷰 생성 및 페이징 조회를 처리하는 서비스 클래스입니다.
+ */
 @Service
 @RequiredArgsConstructor
 public class ReviewService {

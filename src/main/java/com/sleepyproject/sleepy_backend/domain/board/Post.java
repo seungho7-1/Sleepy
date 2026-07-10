@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * 커뮤니티 게시글 정보를 저장하는 도메인 엔티티 클래스입니다.
+ */
 @Entity
 @Getter
 @NoArgsConstructor
@@ -48,14 +51,23 @@ public class Post {
         this.createdAt = createdAt;
     }
 
+    /**
+     * 게시글 조회수를 1 증가시킵니다.
+     */
     public void incrementViewCount() {
         this.viewCount++;
     }
 
+    /**
+     * 게시글 좋아요 수를 1 증가시킵니다.
+     */
     public void incrementLikeCount() {
         this.likeCount++;
     }
 
+    /**
+     * 게시글 좋아요 수를 1 감소시킵니다.
+     */
     public void decrementLikeCount() {
         if (this.likeCount > 0) this.likeCount--;
     }
