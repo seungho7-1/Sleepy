@@ -14,7 +14,7 @@ echo ""
 read -p "S3 버킷 이름 (기본값: sleepy-media): " S3_BUCKET
 S3_BUCKET=${S3_BUCKET:-sleepy-media}
 
-DOMAIN="sleepyslime.kro.kr"
+DOMAIN="sleepyslime.p-e.kr"
 DB_PASSWORD="Ap513147!"
 JAR_NAME="sleepy-backend-0.0.1-SNAPSHOT.jar"
 
