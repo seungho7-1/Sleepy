@@ -30,7 +30,18 @@ public class SellerApplication {
     @Column(nullable = false)
     private ApplicationStatus status;
 
+    @Column(columnDefinition = "TEXT")
+    private String rejectionReason;
+
     public void updateStatus(ApplicationStatus status) {
         this.status = status;
+        if (status != ApplicationStatus.REJECTED) {
+            this.rejectionReason = null;
+        }
+    }
+
+    public void reject(String reason) {
+        this.status = ApplicationStatus.REJECTED;
+        this.rejectionReason = reason;
     }
 }

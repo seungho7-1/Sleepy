@@ -28,6 +28,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
         log.error("Exception: {}", e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("알 수 없는 오류가 발생했습니다."));
+                .body(ApiResponse.error("알 수 없는 오류가 발생했습니다: [" + e.getClass().getName() + "] " + e.getMessage()));
     }
 }

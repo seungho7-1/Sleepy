@@ -11,9 +11,9 @@ import lombok.Setter;
 //회원가입 요청
 public class SignupRequest {
 
-    @NotBlank(message = "이메일은 필수 입력값입니다.")
-    @Email(message = "이메일 형식이 올바르지 않습니다.")
-    // 사용자 이메일 (로그인 ID로 사용되며, 중복 불가)
+    @NotBlank(message = "아이디는 필수 입력값입니다.")
+    private String username;
+
     private String email;
 
     @NotBlank(message = "비밀번호는 필수 입력값입니다.")

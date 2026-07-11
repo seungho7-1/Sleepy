@@ -36,8 +36,8 @@ public class LikeService {
      * @return 좋아요 추가 시 true, 취소 시 false 반환
      */
     @Transactional
-    public boolean toggleLike(Long targetId, String targetTypeStr, String email) {
-        Member member = memberRepository.findByEmail(email)
+    public boolean toggleLike(Long targetId, String targetTypeStr, String username) {
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         
         TargetType targetType = TargetType.valueOf(targetTypeStr.toUpperCase());

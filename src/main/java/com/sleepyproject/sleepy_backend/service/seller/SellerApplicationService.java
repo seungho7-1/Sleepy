@@ -19,9 +19,10 @@ public class SellerApplicationService {
     private final SellerApplicationRepository applicationRepository;
     private final MemberRepository memberRepository;
 
+    //판매자 등록
     @Transactional
-    public void submitApplication(String email, String siteUrl, String introduction) {
-        Member member = memberRepository.findByEmail(email)
+    public void submitApplication(String username, String siteUrl, String introduction) {
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Member not found"));
 
         SellerApplication application = SellerApplication.builder()
@@ -49,9 +50,25 @@ public class SellerApplicationService {
     }
 
     @Transactional
-    public void rejectApplication(Long applicationId) {
+    public void rejectApplication(Long applicationId, String reason) {
         SellerApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-        application.updateStatus(ApplicationStatus.REJECTED);
+        application.reject(reason);
+    }
+
+    @Transactional(readOnly = true)
+    public SellerApplication getLatestApplication(String username) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+        
+        List<SellerApplication> apps = applicationRepository.findAll().stream()
+                .filter(app -> app.getMember().getId().equals(member.getId()))
+                .toList();
+        
+        if (apps.isEmpty()) {
+            return null;
+        }
+        // Return the latest application by ID (assuming auto-increment ID represents timeline)
+        return apps.get(apps.size() - 1);
     }
 }

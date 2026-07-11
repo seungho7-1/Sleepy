@@ -65,9 +65,9 @@ public class ProductService {
      * @param email   등록자의 이메일 (인증정보에서 추출)
      * @return 등록 완료된 상품의 고유 ID(PK) 반환
      */
-    public Long create(ProductCreateRequest request, String email) {
+    public Long create(ProductCreateRequest request, String username) {
         // 1. 등록하려는 회원(판매자)이 데이터베이스에 존재하는지 검증
-        Member seller = memberRepository.findByEmail(email)
+        Member seller = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
 
         String imagesString = request.getImageUrls() != null ? String.join(",", request.getImageUrls()) : "";
@@ -115,9 +115,9 @@ public class ProductService {
      */
     @Transactional
     // @CacheEvict(value = "productDetail", key = "#productId")
-    public void update(Long productId, ProductUpdateRequest request, String email) {
+    public void update(Long productId, ProductUpdateRequest request, String username) {
         // 1. 수정을 요청한 회원 정보 조회
-        Member seller = memberRepository.findByEmail(email)
+        Member seller = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
 
         // 2. 수정 대상 상품 정보 조회
@@ -167,9 +167,9 @@ public class ProductService {
      * @param email     삭제를 요청한 유저 이메일 (본인 소유 체크용)
      */
     @Transactional
-    public void delete(Long productId, String email) {
+    public void delete(Long productId, String username) {
         // 1. 유저 및 상품 정보 조회
-        Member seller = memberRepository.findByEmail(email)
+        Member seller = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
 
         Product product = productRepository.findById(productId)
@@ -199,13 +199,13 @@ public class ProductService {
     public Page<ProductResponse> getProducts(String keyword, Pageable pageable) {
         Page<Product> products;
 
-        // 키워드가 없을 경우 전체 데이터를 페이징 조회하고, 있을 경우 키워드가 포함된 상품명을 검색함.
+        // 키워드가 없을 경우 전체 데이터를 페이징 조회하고, 있을 경우 키워드가 포함된 상품명 또는 스토어명을 검색함.
         if (keyword == null || keyword.isBlank()) {
             log.info("키워드가 없으므로 전체 상품 조회");
             products = productRepository.findAll(pageable);
         } else {
             log.info("키워드로 검색 진행: {}", keyword);
-            products = productRepository.findByNameContaining(keyword, pageable);
+            products = productRepository.findByNameContainingOrShopNameContaining(keyword, keyword, pageable);
         }
 
         // DB에서 가져온 엔티티 Page 객체를 응답용 DTO(ProductResponse) Page 객체로 매핑/변환

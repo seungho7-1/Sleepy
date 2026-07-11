@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,34 @@ import java.util.Map;
 public class MemberController {
 
     private final MemberService memberService;
+    private final com.sleepyproject.sleepy_backend.service.seller.SellerApplicationService sellerApplicationService;
+    private final com.sleepyproject.sleepy_backend.repository.member.MemberRepository memberRepository;
+    private final JdbcTemplate jdbcTemplate;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.kakao.client-id:}")
+    private String kakaoId;
+    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.kakao.client-secret:}")
+    private String kakaoSecret;
+    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.naver.client-id:}")
+    private String naverId;
+    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.naver.client-secret:}")
+    private String naverSecret;
+
+    @GetMapping("/debug-secrets")
+    public ResponseEntity<?> debugSecrets() {
+        return ResponseEntity.ok(Map.of(
+            "kakaoId", mask(kakaoId),
+            "kakaoSecret", mask(kakaoSecret),
+            "naverId", mask(naverId),
+            "naverSecret", mask(naverSecret)
+        ));
+    }
+
+    private String mask(String val) {
+        if (val == null || val.isEmpty()) return "empty";
+        if (val.startsWith("YOUR_")) return "DUMMY: " + val;
+        return val.substring(0, Math.min(val.length(), 4)) + "... (len: " + val.length() + ")";
+    }
 
     /**
      * 신규 회원가입을 처리합니다. (비로그인 허용)
@@ -72,8 +101,8 @@ public class MemberController {
      */
     @GetMapping("/me")
     public ResponseEntity<?> me(Authentication authentication) {
-        String email = (String) authentication.getPrincipal();
-        MemberInfo memberInfo = memberService.getMyInfo(email);
+        String username = (String) authentication.getPrincipal();
+        MemberInfo memberInfo = memberService.getMyInfo(username);
         return ResponseEntity.ok(memberInfo);
     }
 
@@ -85,8 +114,8 @@ public class MemberController {
      */
     @GetMapping("/my-products")
     public ResponseEntity<?> myProducts(Authentication authentication) {
-        String email = (String) authentication.getPrincipal();
-        List<ProductResponse> products = memberService.getMyProducts(email);
+        String username = (String) authentication.getPrincipal();
+        List<ProductResponse> products = memberService.getMyProducts(username);
         return ResponseEntity.ok(products);
     }
 
@@ -99,8 +128,76 @@ public class MemberController {
      */
     @PatchMapping("/nickname")
     public ResponseEntity<?> updateNickname(@RequestBody NicknameUpdateRequest request, Authentication authentication) {
-        String email = (String) authentication.getPrincipal();
-        memberService.updateNickname(email, request);
+        String username = (String) authentication.getPrincipal();
+        memberService.updateNickname(username, request);
         return ResponseEntity.ok(Map.of("message", "닉네임이 변경되었습니다."));
+    }
+
+    @DeleteMapping("/withdraw")
+    public ResponseEntity<?> withdraw(Authentication authentication) {
+        String username = (String) authentication.getPrincipal();
+        memberService.withdrawMember(username);
+        return ResponseEntity.ok(Map.of("message", "회원 탈퇴 완료"));
+    }
+
+    @PostMapping("/oauth2/onboarding")
+    public ResponseEntity<?> onboarding(Authentication authentication, @RequestBody OnboardingRequest request) {
+        String username = (String) authentication.getPrincipal();
+        
+        memberService.updateNickname(username, new NicknameUpdateRequest(request.getNickname()));
+        
+        if ("SELLER".equalsIgnoreCase(request.getRole())) {
+            sellerApplicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction());
+        }
+        
+        com.sleepyproject.sleepy_backend.domain.member.Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        member.completeOnboarding();
+        memberRepository.save(member);
+        
+        return ResponseEntity.ok(Map.of(
+            "message", "온보딩 완료",
+            "nickname", member.getNickname(),
+            "role", member.getRole().name()
+        ));
+    }
+
+    @GetMapping("/check-username")
+    public ResponseEntity<?> checkUsername(@RequestParam("username") String username) {
+        boolean exists = memberService.checkUsernameExists(username);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
+    @GetMapping("/check-nickname")
+    public ResponseEntity<?> checkNickname(@RequestParam("nickname") String nickname) {
+        boolean exists = memberService.checkNicknameExists(nickname);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
+    @GetMapping("/reset-db")
+    public ResponseEntity<?> resetDb() {
+        try {
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
+            jdbcTemplate.execute("TRUNCATE TABLE board_comment");
+            jdbcTemplate.execute("TRUNCATE TABLE board_post");
+            jdbcTemplate.execute("TRUNCATE TABLE product_tag");
+            jdbcTemplate.execute("TRUNCATE TABLE tag");
+            jdbcTemplate.execute("TRUNCATE TABLE product");
+            jdbcTemplate.execute("TRUNCATE TABLE seller_application");
+            jdbcTemplate.execute("TRUNCATE TABLE member");
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
+            return ResponseEntity.ok(Map.of("message", "데이터베이스의 모든 데이터가 성공적으로 초기화되었습니다!"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @lombok.Data
+    public static class OnboardingRequest {
+        private String nickname;
+        private String role;
+        private String siteUrl;
+        private String introduction;
     }
 }

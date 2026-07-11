@@ -14,6 +14,8 @@ public class MemberInfo {
     // 회원 고유 ID
     private Long id;
 
+    private String username;
+
     // 이메일 주소
     private String email;
 

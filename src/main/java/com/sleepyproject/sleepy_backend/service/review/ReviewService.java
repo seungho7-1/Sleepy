@@ -35,8 +35,8 @@ public class ReviewService {
      * @return 등록된 리뷰의 ID
      */
     @Transactional
-    public Long create(ReviewRequest request, String email) {
-        Member member = memberRepository.findByEmail(email)
+    public Long create(ReviewRequest request, String username) {
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         Product product = productRepository.findById(request.getProductId())

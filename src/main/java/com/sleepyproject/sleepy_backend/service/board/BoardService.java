@@ -47,8 +47,8 @@ public class BoardService {
      * @return 생성된 게시글의 ID
      */
     @Transactional
-    public Long createPost(PostRequest request, String email) {
-        Member member = memberRepository.findByEmail(email)
+    public Long createPost(PostRequest request, String username) {
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         Post post = Post.builder()
@@ -104,8 +104,8 @@ public class BoardService {
      * @return 생성된 댓글의 ID
      */
     @Transactional
-    public Long createComment(CommentRequest request, String email) {
-        Member member = memberRepository.findByEmail(email)
+    public Long createComment(CommentRequest request, String username) {
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         Comment.CommentBuilder builder = Comment.builder()
@@ -166,13 +166,13 @@ public class BoardService {
      * @return 내가 쓴 게시글 목록 (PostResponse 리스트)
      */
     @Transactional(readOnly = true)
-    public List<PostResponse> getMyPosts(String email, String type) {
+    public List<PostResponse> getMyPosts(String username, String type) {
         List<Post> posts;
         if ("MEDIA".equalsIgnoreCase(type)) {
-            posts = postRepository.findByMemberEmailAndBoardTypeOrderByCreatedAtDesc(email, BoardType.MEDIA);
+            posts = postRepository.findByMemberUsernameAndBoardTypeOrderByCreatedAtDesc(username, BoardType.MEDIA);
         } else {
             // MEDIA를 제외한 일반 텍스트 게시글들 조회
-            posts = postRepository.findByMemberEmailAndBoardTypeNotOrderByCreatedAtDesc(email, BoardType.MEDIA);
+            posts = postRepository.findByMemberUsernameAndBoardTypeNotOrderByCreatedAtDesc(username, BoardType.MEDIA);
         }
         return posts.stream().map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
@@ -187,8 +187,8 @@ public class BoardService {
      * @return 내가 쓴 댓글 목록 (MyCommentResponse 리스트)
      */
     @Transactional(readOnly = true)
-    public List<MyCommentResponse> getMyComments(String email) {
-        List<Comment> comments = commentRepository.findByMemberEmailOrderByCreatedAtDesc(email);
+    public List<MyCommentResponse> getMyComments(String username) {
+        List<Comment> comments = commentRepository.findByMemberUsernameOrderByCreatedAtDesc(username);
         return comments.stream().map(c -> {
             Long targetId = null;
             String targetType = null;
@@ -230,10 +230,10 @@ public class BoardService {
      * @throws IllegalArgumentException 대상 댓글이 존재하지 않거나 권한이 없는 경우
      */
     @Transactional
-    public void updateComment(Long commentId, CommentRequest request, String email) {
+    public void updateComment(Long commentId, CommentRequest request, String username) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
-        if (!comment.getMember().getEmail().equalsIgnoreCase(email)) {
+        if (!comment.getMember().getUsername().equalsIgnoreCase(username)) {
             throw new IllegalArgumentException("댓글 수정 권한이 없습니다.");
         }
         comment.updateContent(request.getContent());
@@ -248,10 +248,10 @@ public class BoardService {
      * @throws IllegalArgumentException 대상 댓글이 존재하지 않거나 권한이 없는 경우
      */
     @Transactional
-    public void deleteComment(Long commentId, String email) {
+    public void deleteComment(Long commentId, String username) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
-        if (!comment.getMember().getEmail().equalsIgnoreCase(email)) {
+        if (!comment.getMember().getUsername().equalsIgnoreCase(username)) {
             throw new IllegalArgumentException("댓글 삭제 권한이 없습니다.");
         }
         commentRepository.delete(comment);

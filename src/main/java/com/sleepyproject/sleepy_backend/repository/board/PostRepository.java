@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByBoardType(BoardType boardType, Pageable pageable);
-    List<Post> findByMemberEmailOrderByCreatedAtDesc(String email);
-    List<Post> findByMemberEmailAndBoardTypeOrderByCreatedAtDesc(String email, BoardType boardType);
-    List<Post> findByMemberEmailAndBoardTypeNotOrderByCreatedAtDesc(String email, BoardType boardType);
+    List<Post> findByMemberUsernameOrderByCreatedAtDesc(String username);
+    List<Post> findByMemberUsernameAndBoardTypeOrderByCreatedAtDesc(String username, BoardType boardType);
+    List<Post> findByMemberUsernameAndBoardTypeNotOrderByCreatedAtDesc(String username, BoardType boardType);
 }

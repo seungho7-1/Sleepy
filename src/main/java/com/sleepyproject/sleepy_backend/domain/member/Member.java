@@ -21,7 +21,10 @@ public class Member {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
+    private String username;
+
+    @Column(unique = true)
     private String email;
 
     @Column(nullable = false)
@@ -35,6 +38,20 @@ public class Member {
 
     private LocalDateTime createdAt;
 
+    private String oauthProvider; // KAKAO, NAVER
+
+    private String oauthAccessToken;
+
+    private String oauthRefreshToken;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean onboarded = false;
+
+    public void completeOnboarding() {
+        this.onboarded = true;
+    }
+
     /**
      * 닉네임 수정 메서드 (더티 체킹 방식으로 트랜잭션 내에서 자동 반영됨)
      *
@@ -46,5 +63,14 @@ public class Member {
 
     public void updateRole(Role role) {
         this.role = role;
+    }
+
+    public void updateOauthTokens(String accessToken, String refreshToken) {
+        this.oauthAccessToken = accessToken;
+        this.oauthRefreshToken = refreshToken;
+    }
+
+    public void updateOauthProvider(String provider) {
+        this.oauthProvider = provider;
     }
 }

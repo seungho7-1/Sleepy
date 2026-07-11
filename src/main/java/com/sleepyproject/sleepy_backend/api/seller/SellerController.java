@@ -20,9 +20,28 @@ public class SellerController {
             return ResponseEntity.status(401).body("Unauthorized");
         }
         
-        String email = authentication.getName();
-        applicationService.submitApplication(email, request.getSiteUrl(), request.getIntroduction());
+        String username = authentication.getName();
+        applicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction());
         return ResponseEntity.ok("Application submitted successfully");
+    }
+
+    @GetMapping("/latest")
+    public ResponseEntity<?> getLatestApplication(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+        String username = authentication.getName();
+        com.sleepyproject.sleepy_backend.domain.seller.SellerApplication app = applicationService.getLatestApplication(username);
+        if (app == null) {
+            return ResponseEntity.ok(java.util.Collections.emptyMap());
+        }
+        return ResponseEntity.ok(java.util.Map.of(
+            "id", app.getId(),
+            "siteUrl", app.getSiteUrl(),
+            "introduction", app.getIntroduction(),
+            "status", app.getStatus().name(),
+            "rejectionReason", app.getRejectionReason() != null ? app.getRejectionReason() : ""
+        ));
     }
 
     @Data

@@ -35,6 +35,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         if ("kakao".equals(registrationId)) {
             Map<String, Object> attributes = oAuth2User.getAttributes();
+            String id = attributes.get("id").toString();
             Map<String, Object> kakaoAccount = (Map<String, Object>) attributes.get("kakao_account");
             if (kakaoAccount != null) {
                 email = (String) kakaoAccount.get("email");
@@ -43,37 +44,78 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     name = (String) profile.get("nickname");
                 }
             }
+            if (email == null || email.isEmpty()) {
+                email = id + "@kakao.user";
+            }
         } else if ("naver".equals(registrationId)) {
             Map<String, Object> response = (Map<String, Object>) oAuth2User.getAttributes().get("response");
             if (response != null) {
+                String id = (String) response.get("id");
                 email = (String) response.get("email");
                 name = (String) response.get("name");
+                if (email == null || email.isEmpty()) {
+                    email = id + "@naver.user";
+                }
             }
         }
 
-        if (email == null) {
-            throw new OAuth2AuthenticationException("Email not found from OAuth2 provider");
-        }
-
+        boolean isNewUser = false;
         Optional<Member> memberOptional = memberRepository.findByEmail(email);
         Member member;
         if (memberOptional.isPresent()) {
             member = memberOptional.get();
+            if (!member.isOnboarded()) {
+                isNewUser = true;
+            }
         } else {
+            isNewUser = true;
             member = Member.builder()
+                    .username(email) // For social login, username is set to the email
                     .email(email)
                     .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                     .nickname(name != null ? name : "USER")
-                    .role(Role.USER)
+                    .role(Role.BUYER)
                     .createdAt(LocalDateTime.now())
+                    .onboarded(false)
                     .build();
-            memberRepository.save(member);
         }
 
-        return new DefaultOAuth2User(
+        // Update OAuth tokens on every login
+        member.updateOauthProvider(registrationId.toUpperCase());
+        String accessToken = userRequest.getAccessToken().getTokenValue();
+        String refreshToken = null;
+        if (userRequest.getAdditionalParameters() != null && userRequest.getAdditionalParameters().containsKey("refresh_token")) {
+            refreshToken = userRequest.getAdditionalParameters().get("refresh_token").toString();
+        }
+        member.updateOauthTokens(accessToken, refreshToken);
+        memberRepository.save(member);
+
+        return new CustomOAuth2User(
                 Collections.singletonList(() -> "ROLE_" + member.getRole().name()),
                 oAuth2User.getAttributes(),
-                userRequest.getClientRegistration().getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName()
+                userRequest.getClientRegistration().getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName(),
+                isNewUser,
+                member.getNickname(),
+                member.getUsername()
         );
+    }
+
+    @lombok.Getter
+    public static class CustomOAuth2User extends DefaultOAuth2User {
+        private final boolean isNewUser;
+        private final String nickname;
+        private final String username;
+
+        public CustomOAuth2User(java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> authorities,
+                                Map<String, Object> attributes,
+                                String nameAttributeKey,
+                                boolean isNewUser,
+                                String nickname,
+                                String username) {
+            super(authorities, attributes, nameAttributeKey);
+            this.isNewUser = isNewUser;
+            this.nickname = nickname;
+            this.username = username;
+        }
     }
 }

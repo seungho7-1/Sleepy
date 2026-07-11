@@ -23,14 +23,8 @@ public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final com.sleepyproject.sleepy_backend.security.oauth2.OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
-    /**
-     * 비밀번호 암호화를 위한 BCryptPasswordEncoder 빈 등록
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
 
     /**
      * JWT 인증 필터 빈 등록
@@ -57,6 +51,7 @@ public class SecurityConfig {
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService)
                         )
+                        .successHandler(oAuth2LoginSuccessHandler)
                 )
 
                 // JWT 필터를 UsernamePasswordAuthenticationFilter 이전에 등록
@@ -68,7 +63,7 @@ public class SecurityConfig {
                 // URL 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         // 1. 회원가입, 로그인 등 인증 관련 공개 API
-                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/logout").permitAll()
+                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/debug-secrets", "/api/auth/check-username", "/api/auth/check-nickname", "/api/auth/reset-db").permitAll()
                         
                         // 2. 상품 조회 관련 공개 API (GET만 허가)
                         .requestMatchers(HttpMethod.GET, "/api/products/list", "/api/products/detail/**").permitAll()
