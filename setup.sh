@@ -30,7 +30,7 @@ sudo apt install -y nodejs
 echo "[3/7] MySQL 데이터베이스 설정..."
 sudo systemctl start mysql
 sudo mysql -e "CREATE DATABASE IF NOT EXISTS sleepy CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';"
+sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';"
 sudo mysql -e "GRANT ALL PRIVILEGES ON sleepy.* TO 'root'@'localhost';"
 sudo mysql -e "FLUSH PRIVILEGES;"
 
