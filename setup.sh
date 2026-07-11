@@ -21,7 +21,9 @@ JAR_NAME="sleepy-backend-0.0.1-SNAPSHOT.jar"
 echo ""
 echo "[1/7] 패키지 업데이트 및 기본 도구 설치..."
 sudo apt update -y
-sudo apt install -y openjdk-17-jre-headless mysql-server nginx git unzip curl
+sudo apt install -y openjdk-17-jre-headless mysql-server nginx git unzip curl redis-server
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
 
 echo "[2/7] Node.js 20 설치..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -66,6 +68,31 @@ aws.s3.bucket=${S3_BUCKET}
 aws.s3.region=ap-northeast-2
 spring.cloud.aws.credentials.access-key=${AWS_ACCESS_KEY}
 spring.cloud.aws.credentials.secret-key=${AWS_SECRET_KEY}
+
+# OAuth2 Client Settings
+spring.security.oauth2.client.registration.kakao.client-id=590a8660b71d294a41604b7159d5b9e5
+spring.security.oauth2.client.registration.kakao.client-secret=VND2dZd01TK2xaQaZdVXIctRX0wYP4a8
+spring.security.oauth2.client.registration.kakao.client-authentication-method=client_secret_post
+spring.security.oauth2.client.registration.kakao.authorization-grant-type=authorization_code
+spring.security.oauth2.client.registration.kakao.redirect-uri={baseUrl}/login/oauth2/code/kakao
+spring.security.oauth2.client.registration.kakao.client-name=Kakao
+
+spring.security.oauth2.client.provider.kakao.authorization-uri=https://kauth.kakao.com/oauth/authorize
+spring.security.oauth2.client.provider.kakao.token-uri=https://kauth.kakao.com/oauth/token
+spring.security.oauth2.client.provider.kakao.user-info-uri=https://kapi.kakao.com/v2/user/me
+spring.security.oauth2.client.provider.kakao.user-name-attribute=id
+
+spring.security.oauth2.client.registration.naver.client-id=pOYdOcyx9gI7ATBWwcVm
+spring.security.oauth2.client.registration.naver.client-secret=TtECI1jasa
+spring.security.oauth2.client.registration.naver.client-authentication-method=client_secret_post
+spring.security.oauth2.client.registration.naver.authorization-grant-type=authorization_code
+spring.security.oauth2.client.registration.naver.redirect-uri={baseUrl}/login/oauth2/code/naver
+spring.security.oauth2.client.registration.naver.client-name=Naver
+
+spring.security.oauth2.client.provider.naver.authorization-uri=https://nid.naver.com/oauth2.0/authorize
+spring.security.oauth2.client.provider.naver.token-uri=https://nid.naver.com/oauth2.0/token
+spring.security.oauth2.client.provider.naver.user-info-uri=https://openapi.naver.com/v1/nid/me
+spring.security.oauth2.client.provider.naver.user-name-attribute=response
 PROPS
 
 chmod +x gradlew
