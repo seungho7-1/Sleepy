@@ -109,7 +109,9 @@ public class MemberService {
                 member.getEmail(),
                 member.getNickname(),
                 member.getRole().name(),
-                formattedDate
+                formattedDate,
+                member.getOauthProvider(),
+                member.getProfileImageUrl()
         );
     }
 
@@ -173,6 +175,41 @@ public class MemberService {
 
         // 더티 체킹: @Transactional 범위 안에서 엔티티 값 변경 시 별도 save() 없이 DB 자동 반영
         member.updateNickname(request.getNickname());
+    }
+
+    @Transactional
+    public void updateProfileImage(String username, String profileImageUrl) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+        member.updateProfileImage(profileImageUrl);
+    }
+
+    @Transactional
+    public void updateEmail(String username, String email) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+        if (memberRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("이미 사용중인 이메일입니다.");
+        }
+        member.updateEmail(email);
+    }
+
+    @Transactional
+    public void updateProfile(String username, String nickname, String profileImageUrl, String email) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+        if (nickname != null && !nickname.isBlank()) {
+            member.updateNickname(nickname);
+        }
+        if (profileImageUrl != null) {
+            member.updateProfileImage(profileImageUrl);
+        }
+        if (email != null && !email.isBlank()) {
+            if (!email.equals(member.getEmail()) && memberRepository.existsByEmail(email)) {
+                throw new IllegalArgumentException("이미 사용중인 이메일입니다.");
+            }
+            member.updateEmail(email);
+        }
     }
 
     /**

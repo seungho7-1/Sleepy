@@ -15,7 +15,7 @@ read -p "S3 버킷 이름 (기본값: sleepy-media): " S3_BUCKET
 S3_BUCKET=${S3_BUCKET:-sleepy-media}
 
 DOMAIN="sleepyslime.p-e.kr"
-DB_PASSWORD="Ap513147!"
+DB_PASSWORD="YOUR_DB_PASSWORD"
 JAR_NAME="sleepy-backend-0.0.1-SNAPSHOT.jar"
 
 echo ""
@@ -70,8 +70,8 @@ spring.cloud.aws.credentials.access-key=${AWS_ACCESS_KEY}
 spring.cloud.aws.credentials.secret-key=${AWS_SECRET_KEY}
 
 # OAuth2 Client Settings
-spring.security.oauth2.client.registration.kakao.client-id=590a8660b71d294a41604b7159d5b9e5
-spring.security.oauth2.client.registration.kakao.client-secret=VND2dZd01TK2xaQaZdVXIctRX0wYP4a8
+spring.security.oauth2.client.registration.kakao.client-id=${KAKAO_CLIENT_ID}
+spring.security.oauth2.client.registration.kakao.client-secret=${KAKAO_CLIENT_SECRET}
 spring.security.oauth2.client.registration.kakao.client-authentication-method=client_secret_post
 spring.security.oauth2.client.registration.kakao.authorization-grant-type=authorization_code
 spring.security.oauth2.client.registration.kakao.redirect-uri={baseUrl}/login/oauth2/code/kakao
@@ -82,8 +82,8 @@ spring.security.oauth2.client.provider.kakao.token-uri=https://kauth.kakao.com/o
 spring.security.oauth2.client.provider.kakao.user-info-uri=https://kapi.kakao.com/v2/user/me
 spring.security.oauth2.client.provider.kakao.user-name-attribute=id
 
-spring.security.oauth2.client.registration.naver.client-id=pOYdOcyx9gI7ATBWwcVm
-spring.security.oauth2.client.registration.naver.client-secret=TtECI1jasa
+spring.security.oauth2.client.registration.naver.client-id=${NAVER_CLIENT_ID}
+spring.security.oauth2.client.registration.naver.client-secret=${NAVER_CLIENT_SECRET}
 spring.security.oauth2.client.registration.naver.client-authentication-method=client_secret_post
 spring.security.oauth2.client.registration.naver.authorization-grant-type=authorization_code
 spring.security.oauth2.client.registration.naver.redirect-uri={baseUrl}/login/oauth2/code/naver

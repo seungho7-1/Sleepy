@@ -21,7 +21,7 @@ public class SellerController {
         }
         
         String username = authentication.getName();
-        applicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction());
+        applicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction(), request.getShopName(), request.getSnsUrls());
         return ResponseEntity.ok("Application submitted successfully");
     }
 
@@ -39,6 +39,8 @@ public class SellerController {
             "id", app.getId(),
             "siteUrl", app.getSiteUrl(),
             "introduction", app.getIntroduction(),
+            "shopName", app.getShopName(),
+            "snsUrls", app.getSnsUrls() != null ? app.getSnsUrls() : "",
             "status", app.getStatus().name(),
             "rejectionReason", app.getRejectionReason() != null ? app.getRejectionReason() : ""
         ));
@@ -48,5 +50,7 @@ public class SellerController {
     public static class ApplicationRequest {
         private String siteUrl;
         private String introduction;
+        private String shopName;
+        private String snsUrls;
     }
 }

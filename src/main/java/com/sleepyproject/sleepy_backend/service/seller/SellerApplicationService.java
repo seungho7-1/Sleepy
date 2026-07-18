@@ -21,7 +21,7 @@ public class SellerApplicationService {
 
     //판매자 등록
     @Transactional
-    public void submitApplication(String username, String siteUrl, String introduction) {
+    public void submitApplication(String username, String siteUrl, String introduction, String shopName, String snsUrls) {
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Member not found"));
 
@@ -29,6 +29,8 @@ public class SellerApplicationService {
                 .member(member)
                 .siteUrl(siteUrl)
                 .introduction(introduction)
+                .shopName(shopName)
+                .snsUrls(snsUrls)
                 .status(ApplicationStatus.PENDING)
                 .build();
         applicationRepository.save(application);
@@ -47,6 +49,7 @@ public class SellerApplicationService {
                 .orElseThrow(() -> new RuntimeException("Application not found"));
         application.updateStatus(ApplicationStatus.APPROVED);
         application.getMember().updateRole(Role.SELLER);
+        application.getMember().updateSellerInfo(application.getSiteUrl(), application.getSnsUrls(), application.getShopName());
     }
 
     @Transactional

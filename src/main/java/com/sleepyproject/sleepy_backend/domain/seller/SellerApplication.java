@@ -26,6 +26,12 @@ public class SellerApplication {
     @Column(columnDefinition = "TEXT")
     private String introduction;
 
+    @Column(nullable = false)
+    private String shopName;
+
+    @Column(length = 1000)
+    private String snsUrls;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ApplicationStatus status;

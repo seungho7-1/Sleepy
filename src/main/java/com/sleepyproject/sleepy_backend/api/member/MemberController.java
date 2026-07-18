@@ -133,6 +133,27 @@ public class MemberController {
         return ResponseEntity.ok(Map.of("message", "닉네임이 변경되었습니다."));
     }
 
+    @PatchMapping("/profile-image")
+    public ResponseEntity<?> updateProfileImage(@RequestBody Map<String, String> request, Authentication authentication) {
+        String username = (String) authentication.getPrincipal();
+        memberService.updateProfileImage(username, request.get("profileImageUrl"));
+        return ResponseEntity.ok(Map.of("message", "프로필 이미지가 변경되었습니다."));
+    }
+
+    @PatchMapping("/email")
+    public ResponseEntity<?> updateEmail(@RequestBody Map<String, String> request, Authentication authentication) {
+        String username = (String) authentication.getPrincipal();
+        memberService.updateEmail(username, request.get("email"));
+        return ResponseEntity.ok(Map.of("message", "이메일이 변경되었습니다."));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> request, Authentication authentication) {
+        String username = (String) authentication.getPrincipal();
+        memberService.updateProfile(username, request.get("nickname"), request.get("profileImageUrl"), request.get("email"));
+        return ResponseEntity.ok(Map.of("message", "프로필이 업데이트되었습니다."));
+    }
+
     @DeleteMapping("/withdraw")
     public ResponseEntity<?> withdraw(Authentication authentication) {
         String username = (String) authentication.getPrincipal();
@@ -147,7 +168,7 @@ public class MemberController {
         memberService.updateNickname(username, new NicknameUpdateRequest(request.getNickname()));
         
         if ("SELLER".equalsIgnoreCase(request.getRole())) {
-            sellerApplicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction());
+            sellerApplicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction(), request.getShopName(), request.getSnsUrls());
         }
         
         com.sleepyproject.sleepy_backend.domain.member.Member member = memberRepository.findByUsername(username)
@@ -193,11 +214,35 @@ public class MemberController {
         }
     }
 
+    @PostMapping("/seed-admin")
+    public ResponseEntity<?> seedAdmin() {
+        try {
+            SignupRequest request = new SignupRequest();
+            request.setUsername("admin");
+            request.setEmail("admin@sleepy.com");
+            request.setPassword("admin1234");
+            request.setNickname("관리자");
+            request.setRole("ADMIN");
+            memberService.signup(request);
+            
+            com.sleepyproject.sleepy_backend.domain.member.Member member = memberRepository.findByUsername("admin")
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            member.completeOnboarding();
+            memberRepository.save(member);
+            
+            return ResponseEntity.ok(Map.of("message", "관리자 계정(admin / admin1234)이 생성되었습니다."));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @lombok.Data
     public static class OnboardingRequest {
         private String nickname;
         private String role;
         private String siteUrl;
         private String introduction;
+        private String shopName;
+        private String snsUrls;
     }
 }

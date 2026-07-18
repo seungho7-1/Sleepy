@@ -41,6 +41,9 @@ public class Post {
 
     private LocalDateTime createdAt;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isHidden = false;
+
     @Builder
     public Post(Member member, String title, String content, BoardType boardType, String imageUrl, LocalDateTime createdAt) {
         this.member = member;
@@ -70,5 +73,19 @@ public class Post {
      */
     public void decrementLikeCount() {
         if (this.likeCount > 0) this.likeCount--;
+    }
+
+    public void update(String title, String content, String imageUrl, java.util.List<String> tags) {
+        this.title = title;
+        this.content = content;
+        this.imageUrl = imageUrl;
+    }
+
+    public void hide() {
+        this.isHidden = true;
+    }
+
+    public void unhide() {
+        this.isHidden = false;
     }
 }

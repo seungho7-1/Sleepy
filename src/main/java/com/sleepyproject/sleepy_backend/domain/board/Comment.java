@@ -66,4 +66,15 @@ public class Comment {
         this.content = content;
         this.createdAt = createdAt;
     }
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isHidden = false;
+
+    public void hide() {
+        this.isHidden = true;
+    }
+
+    public void unhide() {
+        this.isHidden = false;
+    }
 }

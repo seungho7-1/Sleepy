@@ -41,8 +41,11 @@ public class BoardController {
      * @return 페이징 처리된 게시글 목록
      */
     @GetMapping("/posts")
-    public ResponseEntity<?> getPosts(@RequestParam String type, @PageableDefault(size = 10) Pageable pageable) {
-        return ResponseEntity.ok(boardService.getPosts(type, pageable));
+    public ResponseEntity<?> getPosts(
+            @RequestParam String type, 
+            @RequestParam(required = false, defaultValue = "") String keyword, 
+            @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(boardService.getPosts(type, keyword, pageable));
     }
 
     /**
@@ -54,6 +57,28 @@ public class BoardController {
     @GetMapping("/posts/{id}")
     public ResponseEntity<?> getPostDetail(@PathVariable Long id) {
         return ResponseEntity.ok(boardService.getPostDetail(id));
+    }
+
+    @PostMapping("/posts/{id}/view")
+    public ResponseEntity<?> incrementViewCount(@PathVariable Long id) {
+        return ResponseEntity.ok(boardService.incrementViewCount(id));
+    }
+
+    @PostMapping("/posts/{id}/like")
+    public ResponseEntity<?> toggleLike(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(boardService.toggleLike(id, authentication.getName()));
+    }
+
+    @PutMapping("/posts/{id}")
+    public ResponseEntity<?> updatePost(@PathVariable Long id, @RequestBody PostRequest request, Authentication authentication) {
+        boardService.updatePost(id, request, authentication.getName());
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/posts/{id}")
+    public ResponseEntity<?> deletePost(@PathVariable Long id, Authentication authentication) {
+        boardService.deletePost(id, authentication.getName());
+        return ResponseEntity.ok().build();
     }
 
     /**

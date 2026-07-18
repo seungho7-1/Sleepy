@@ -63,7 +63,7 @@ public class SecurityConfig {
                 // URL 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         // 1. 회원가입, 로그인 등 인증 관련 공개 API
-                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/debug-secrets", "/api/auth/check-username", "/api/auth/check-nickname", "/api/auth/reset-db").permitAll()
+                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/debug-secrets", "/api/auth/check-username", "/api/auth/check-nickname", "/api/auth/reset-db", "/api/auth/seed-admin").permitAll()
                         
                         // 2. 상품 조회 관련 공개 API (GET만 허가)
                         .requestMatchers(HttpMethod.GET, "/api/products/list", "/api/products/detail/**").permitAll()
@@ -71,8 +71,9 @@ public class SecurityConfig {
                         // 3. 리뷰 조회 관련 공개 API
                         .requestMatchers(HttpMethod.GET, "/api/reviews/product/**").permitAll()
                         
-                        // 4. 커뮤니티 조회 관련 공개 API (목록 및 상세조회, 댓글 조회)
+                        // 4. 커뮤니티 조회 관련 공개 API (목록 및 상세조회, 댓글 조회, 조회수 증가)
                         .requestMatchers(HttpMethod.GET, "/api/board/posts", "/api/board/posts/**", "/api/board/comments").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/board/posts/*/view").permitAll()
                         
                         // 5. 정적 리소스 및 Swagger UI 공개 설정
                         .requestMatchers("/uploads/**").permitAll()

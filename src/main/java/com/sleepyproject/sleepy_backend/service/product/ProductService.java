@@ -79,7 +79,7 @@ public class ProductService {
                 .description(request.getDescription())
                 .price(request.getPrice())
                 .imageUrl(imagesString) // 이미지 저장 주소 추가
-                .shopName(request.getShopName())   // 슬라임 마켓 스토어명 추가
+                .shopName(seller.getShopName())   // 슬라임 마켓 스토어명 추가 (판매자 정보에서 가져옴)
                 .purchaseUrl(request.getPurchaseUrl()) // 외부 구매 주소 링크 추가
                 .capacity(request.getCapacity())
                 .texture(request.getTexture())
@@ -138,7 +138,7 @@ public class ProductService {
                 request.getPrice(),
                 request.getDescription(),
                 imagesString,  // 이미지 경로 추가
-                request.getShopName(),  // 마켓 스토어명 추가
+                seller.getShopName(),  // 마켓 스토어명 추가 (판매자 정보에서 가져옴)
                 request.getPurchaseUrl(), // 외부 구매 링크 추가
                 request.getCapacity(),
                 request.getTexture(),

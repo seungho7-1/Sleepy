@@ -48,8 +48,39 @@ public class Member {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean onboarded = false;
 
+    // 프로필 이미지 URL
+    private String profileImageUrl;
+
+    // 스토어명 (판매자 필수)
+    private String shopName;
+
+    // 계정 상태 (ACTIVE, SUSPENDED)
+    @Builder.Default
+    @Column(nullable = false)
+    private String status = "ACTIVE";
+
+    // 최근 접속일
+    private LocalDateTime lastLoginAt;
+
+    // 쇼핑몰 주소 (판매자 필수)
+    private String shopUrl;
+
+    // SNS 주소 목록 (선택, 콤마(,) 구분)
+    @Column(length = 1000)
+    private String snsUrls;
+
     public void completeOnboarding() {
         this.onboarded = true;
+    }
+
+    public void updateSellerInfo(String shopUrl, String snsUrls, String shopName) {
+        this.shopUrl = shopUrl;
+        this.snsUrls = snsUrls;
+        this.shopName = shopName;
+    }
+
+    public void updatePassword(String newPassword) {
+        this.password = newPassword;
     }
 
     /**
@@ -72,5 +103,17 @@ public class Member {
 
     public void updateOauthProvider(String provider) {
         this.oauthProvider = provider;
+    }
+
+    public void updateProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
+    public void updateEmail(String email) {
+        this.email = email;
+    }
+
+    public void updateStatus(String status) {
+        this.status = status;
     }
 }

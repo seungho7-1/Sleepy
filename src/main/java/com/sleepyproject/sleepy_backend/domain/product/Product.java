@@ -117,6 +117,17 @@ public class Product {
         this.descriptionImageUrl = descriptionImageUrl;
     }
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isHidden = false;
+
+    public void hide() {
+        this.isHidden = true;
+    }
+
+    public void unhide() {
+        this.isHidden = false;
+    }
+
     /**
      * 쉼표(,)로 구분된 이미지 경로 중 첫 번째 이미지(대표 이미지)를 가져옵니다.
      *

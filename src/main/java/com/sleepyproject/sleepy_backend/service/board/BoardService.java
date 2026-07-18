@@ -38,6 +38,7 @@ public class BoardService {
     private final CommentRepository commentRepository;
     private final MemberRepository memberRepository;
     private final ReviewRepository reviewRepository;
+    private final com.sleepyproject.sleepy_backend.repository.board.PostLikeRepository postLikeRepository;
 
     /**
      * 커뮤니티 게시글 생성 로직
@@ -71,9 +72,9 @@ public class BoardService {
      * @return 페이징 처리된 게시글 목록 (PostResponse 형태)
      */
     @Transactional(readOnly = true)
-    public Page<PostResponse> getPosts(String boardTypeStr, Pageable pageable) {
+    public Page<PostResponse> getPosts(String boardTypeStr, String keyword, Pageable pageable) {
         BoardType type = BoardType.valueOf(boardTypeStr.toUpperCase());
-        return postRepository.findByBoardType(type, pageable).map(p -> new PostResponse(
+        return postRepository.findByBoardTypeAndKeyword(type, keyword, pageable).map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
                 p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt()
         ));
@@ -89,11 +90,64 @@ public class BoardService {
     public PostResponse getPostDetail(Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        post.incrementViewCount(); // 조회수 증가
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
                 post.getMember().getNickname(), post.getViewCount(), post.getLikeCount(), post.getCreatedAt()
         );
+    }
+
+    @Transactional
+    public PostResponse incrementViewCount(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+        post.incrementViewCount();
+        return new PostResponse(
+                post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
+                post.getMember().getNickname(), post.getViewCount(), post.getLikeCount(), post.getCreatedAt()
+        );
+    }
+
+    @Transactional
+    public boolean toggleLike(Long postId, String username) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        java.util.Optional<com.sleepyproject.sleepy_backend.domain.board.PostLike> existingLike = postLikeRepository.findByMemberAndPost(member, post);
+        if (existingLike.isPresent()) {
+            postLikeRepository.delete(existingLike.get());
+            post.decrementLikeCount();
+            return false;
+        } else {
+            postLikeRepository.save(new com.sleepyproject.sleepy_backend.domain.board.PostLike(member, post));
+            post.incrementLikeCount();
+            return true;
+        }
+    }
+
+    @Transactional
+    public void updatePost(Long postId, PostRequest request, String username) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
+            throw new IllegalArgumentException("수정 권한이 없습니다.");
+        }
+        post.update(request.getTitle(), request.getContent(), request.getImageUrl(), null);
+    }
+
+    @Transactional
+    public void deletePost(Long postId, String username) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
+            throw new IllegalArgumentException("삭제 권한이 없습니다.");
+        }
+        postRepository.delete(post);
     }
 
     /**

@@ -8,4 +8,5 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByPostIdOrderByCreatedAtAsc(Long postId);
     List<Comment> findByReviewIdOrderByCreatedAtAsc(Long reviewId);
     List<Comment> findByMemberUsernameOrderByCreatedAtDesc(String username);
+    long countByCreatedAtAfter(java.time.LocalDateTime date);
 }

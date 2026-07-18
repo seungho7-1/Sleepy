@@ -27,4 +27,10 @@ public class MemberInfo {
 
     // 가입 일시 (문자열 포맷으로 전달)
     private String createdAt;
+
+    // OAuth 제공자 (KAKAO, NAVER 등, 없을 경우 null)
+    private String oauthProvider;
+
+    // 프로필 이미지 URL
+    private String profileImageUrl;
 }
