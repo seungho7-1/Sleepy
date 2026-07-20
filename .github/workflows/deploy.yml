@@ -1,20 +1,12 @@
-name: CI/CD Pipeline (GHCR)
+name: CI/CD Pipeline (SCP)
 
 on:
   push:
     branches: [ "main" ]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/sleepy-app
-
 jobs:
-  build-and-push-image:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write # GHCR에 이미지를 업로드할 권한
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -31,32 +23,14 @@ jobs:
           chmod +x gradlew
           ./gradlew build -x test
 
-      - name: Log in to the Container registry
-        uses: docker/login-action@v2
+      - name: Copy JAR to EC2
+        uses: appleboy/scp-action@v0.1.7
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }} # 깃허브가 자동으로 발급하는 토큰 (세팅 불필요)
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: type=raw,value=latest
-
-      # 리포지토리 이름이 대문자일 경우 에러가 나므로 소문자로 변환
-      - name: Lowercase image name
-        run: |
-          echo "IMAGE_URL=$(echo ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: Dockerfile.prod
-          push: true
-          tags: ${{ env.IMAGE_URL }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "build/libs/*.jar"
+          target: "~/sleepy-backend"
 
       - name: Execute Deployment on AWS EC2
         uses: appleboy/ssh-action@master
@@ -69,15 +43,8 @@ jobs:
             cd ~/sleepy-backend
             git pull origin main
 
-            echo "2. GHCR 로그인 (EC2 서버가 이미지를 다운받기 위함)"
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "2. 도커 이미지 빌드 및 재시작"
+            docker-compose -f docker-compose.prod.yml up --build -d app
 
-            echo "3. 새로운 도커 이미지 다운로드(Pull)"
-            export DOCKER_IMAGE=${{ env.IMAGE_URL }}
-            docker-compose -f docker-compose.prod.yml pull app
-
-            echo "4. 무중단(혹은 최소 중단)으로 컨테이너 교체"
-            DOCKER_IMAGE=$DOCKER_IMAGE docker-compose -f docker-compose.prod.yml up -d
-
-            echo "5. 안 쓰는 예전 이미지 삭제 (용량 확보)"
+            echo "3. 안 쓰는 예전 이미지 삭제 (용량 확보)"
             docker image prune -f
