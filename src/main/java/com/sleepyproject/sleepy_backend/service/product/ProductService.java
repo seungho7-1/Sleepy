@@ -1,7 +1,7 @@
 package com.sleepyproject.sleepy_backend.service.product;
 
-// import org.springframework.cache.annotation.CacheEvict;
-// import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 
 import com.sleepyproject.sleepy_backend.api.product.dto.ProductCreateRequest;
 import com.sleepyproject.sleepy_backend.api.product.dto.ProductResponse;
@@ -114,7 +114,7 @@ public class ProductService {
      * @param email     수정을 요청한 유저 이메일 (본인 소유 상품인지 체크용)
      */
     @Transactional
-    // @CacheEvict(value = "productDetail", key = "#productId")
+    @CacheEvict(value = "productDetail", key = "#productId")
     public void update(Long productId, ProductUpdateRequest request, String username) {
         // 1. 수정을 요청한 회원 정보 조회
         Member seller = memberRepository.findByUsername(username)
@@ -196,6 +196,7 @@ public class ProductService {
      * @param pageable 페이징 및 정렬 조건 (Spring의 Pageable 객체)
      * @return DTO인 ProductResponse로 변환된 Page 객체 반환
      */
+    @Transactional
     public Page<ProductResponse> getProducts(String keyword, Pageable pageable) {
         Page<Product> products;
 
@@ -210,7 +211,7 @@ public class ProductService {
 
         // DB에서 가져온 엔티티 Page 객체를 응답용 DTO(ProductResponse) Page 객체로 매핑/변환
         return products.map(p -> {
-            List<String> tags = productTagRepository.findByProduct(p).stream()
+            List<String> tags = p.getProductTags().stream()
                     .map(pt -> pt.getTag().getName())
                     .collect(Collectors.toList());
             return new ProductResponse(
@@ -242,13 +243,13 @@ public class ProductService {
      * @param productId 상세 조회할 상품의 고유 ID
      * @return 조회된 상품 정보 DTO(ProductResponse) 반환
      */
-    // @Cacheable(value = "productDetail", key = "#productId")
+    @Cacheable(value = "productDetail", key = "#productId")
     public ProductResponse getProductDetail(Long productId) {
         // 1. 상품 조회 (존재하지 않으면 예외 발생)
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("상품을 찾을 수 없습니다."));
 
-        List<String> tags = productTagRepository.findByProduct(product).stream()
+        List<String> tags = product.getProductTags().stream()
                 .map(pt -> pt.getTag().getName())
                 .collect(Collectors.toList());
 
@@ -316,7 +317,7 @@ public class ProductService {
         List<com.sleepyproject.sleepy_backend.domain.product.Wishlist> list = wishlistRepository.findByMember(member);
         return list.stream().map(w -> {
             Product p = w.getProduct();
-            List<String> tags = productTagRepository.findByProduct(p).stream()
+            List<String> tags = p.getProductTags().stream()
                     .map(pt -> pt.getTag().getName())
                     .collect(Collectors.toList());
             return new ProductResponse(

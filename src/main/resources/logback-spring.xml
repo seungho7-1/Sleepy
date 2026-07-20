@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- 콘솔(터미널)에 출력되는 로그 설정 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 파일로 저장되는 로그 설정 (개인정보보호 및 법적 방어용) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- 기본 로그 파일 경로 및 이름 -->
+        <file>logs/sleepy-backend.log</file>
+        
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 매일 자정마다 새로운 날짜의 파일로 분리하여 저장 -->
+            <fileNamePattern>logs/sleepy-backend-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- 법적 권장 보관 주기: 90일 (90일이 지난 파일은 서버에서 자동 삭제됨) -->
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+        
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 스프링 부트 기본 로깅 레벨 설정 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </root>
+
+</configuration>

@@ -17,6 +17,7 @@ import com.sleepyproject.sleepy_backend.repository.board.CommentRepository;
 import com.sleepyproject.sleepy_backend.repository.board.PostRepository;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.review.ReviewRepository;
+import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +40,8 @@ public class BoardService {
     private final MemberRepository memberRepository;
     private final ReviewRepository reviewRepository;
     private final com.sleepyproject.sleepy_backend.repository.board.PostLikeRepository postLikeRepository;
+    private final NotificationService notificationService;
+    private final PostRedisService postRedisService;
 
     /**
      * 커뮤니티 게시글 생성 로직
@@ -76,7 +79,7 @@ public class BoardService {
         BoardType type = BoardType.valueOf(boardTypeStr.toUpperCase());
         return postRepository.findByBoardTypeAndKeyword(type, keyword, pageable).map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
-                p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt()
+                p.getMember().getNickname(), p.getViewCount() + postRedisService.getCachedViewCount(p.getId()), p.getLikeCount(), p.getCreatedAt()
         ));
     }
 
@@ -90,40 +93,55 @@ public class BoardService {
     public PostResponse getPostDetail(Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+        
+        // 5분 스케줄러로 인해 DB의 post.getLikeCount()가 즉각 반영되지 않는 현상을 해결하기 위해
+        // 매핑 테이블에서 최신 좋아요 개수를 실시간으로 계산해서 반환합니다.
+        int realLikeCount = (int) postRedisService.getCachedLikeCount(postId);
+        
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
-                post.getMember().getNickname(), post.getViewCount(), post.getLikeCount(), post.getCreatedAt()
+                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), realLikeCount, post.getCreatedAt()
         );
     }
 
     @Transactional
-    public PostResponse incrementViewCount(Long postId) {
+    public PostResponse incrementViewCount(Long postId, String identifier) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        post.incrementViewCount();
+        
+        postRedisService.incrementViewCount(postId, identifier);
+        
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
-                post.getMember().getNickname(), post.getViewCount(), post.getLikeCount(), post.getCreatedAt()
+                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt()
         );
     }
 
+    // 수정 전: DB의 PostLike 테이블을 직접 지웠다 썼다 하던 로직
+    // 수정 후: Redis에서 처리
     @Transactional
     public boolean toggleLike(Long postId, String username) {
+        // 1. 게시글 존재 여부 확인
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
+        // 2. Redis에서 먼저 좋아요 토글 처리 (빛의 속도)
+        boolean isLiked = postRedisService.toggleLike(postId, username);
+
+        // 3. DB 비동기(Async) 저장 처리
+        // 원래는 @Async를 써서 백그라운드로 넘겨야 완벽하지만,
+        // 일단 구조의 단순함을 위해 지금은 DB 처리도 여기서 진행합니다!
         java.util.Optional<com.sleepyproject.sleepy_backend.domain.board.PostLike> existingLike = postLikeRepository.findByMemberAndPost(member, post);
-        if (existingLike.isPresent()) {
-            postLikeRepository.delete(existingLike.get());
-            post.decrementLikeCount();
-            return false;
-        } else {
+        if (isLiked && existingLike.isEmpty()) {
             postLikeRepository.save(new com.sleepyproject.sleepy_backend.domain.board.PostLike(member, post));
-            post.incrementLikeCount();
-            return true;
+        } else if (!isLiked && existingLike.isPresent()) {
+            postLikeRepository.delete(existingLike.get());
         }
+
+        // 4. Redis에서의 토글 결과(true/false)를 프론트엔드로 반환!
+        return isLiked;
     }
 
     @Transactional
@@ -185,7 +203,46 @@ public class BoardService {
             throw new IllegalArgumentException("유효하지 않은 타겟 타입입니다.");
         }
 
-        return commentRepository.save(builder.build()).getId();
+        Comment savedComment = commentRepository.save(builder.build());
+
+        if (savedComment.getParent() != null) {
+            Member targetMember = savedComment.getParent().getMember();
+            if (!targetMember.getId().equals(member.getId())) {
+                String url = savedComment.getPost() != null 
+                        ? "/community/" + savedComment.getPost().getId() + "#comment-" + savedComment.getId()
+                        : "/product/" + savedComment.getReview().getProduct().getId() + "#comment-" + savedComment.getId();
+                notificationService.createNotificationByMember(
+                        targetMember,
+                        com.sleepyproject.sleepy_backend.domain.notification.NotificationType.NEW_COMMENT,
+                        member.getNickname() + "님이 회원님의 댓글에 대댓글을 달았습니다.",
+                        url
+                );
+            }
+        } else {
+            if (savedComment.getPost() != null) {
+                Member targetMember = savedComment.getPost().getMember();
+                if (!targetMember.getId().equals(member.getId())) {
+                    notificationService.createNotificationByMember(
+                            targetMember,
+                            com.sleepyproject.sleepy_backend.domain.notification.NotificationType.NEW_COMMENT,
+                            member.getNickname() + "님이 회원님의 게시글에 댓글을 달았습니다.",
+                            "/community/" + savedComment.getPost().getId() + "#comment-" + savedComment.getId()
+                    );
+                }
+            } else if (savedComment.getReview() != null) {
+                Member targetMember = savedComment.getReview().getMember();
+                if (!targetMember.getId().equals(member.getId())) {
+                    notificationService.createNotificationByMember(
+                            targetMember,
+                            com.sleepyproject.sleepy_backend.domain.notification.NotificationType.NEW_COMMENT,
+                            member.getNickname() + "님이 회원님의 리뷰에 댓글을 달았습니다.",
+                            "/product/" + savedComment.getReview().getProduct().getId() + "#comment-" + savedComment.getId()
+                    );
+                }
+            }
+        }
+
+        return savedComment.getId();
     }
 
     /**

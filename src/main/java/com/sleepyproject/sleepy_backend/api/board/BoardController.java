@@ -9,6 +9,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * 커뮤니티 게시글 및 댓글 관련 HTTP 요청을 처리하는 컨트롤러 클래스입니다.
@@ -60,8 +61,13 @@ public class BoardController {
     }
 
     @PostMapping("/posts/{id}/view")
-    public ResponseEntity<?> incrementViewCount(@PathVariable Long id) {
-        return ResponseEntity.ok(boardService.incrementViewCount(id));
+    public ResponseEntity<?> incrementViewCount(@PathVariable Long id, HttpServletRequest request, Authentication authentication) {
+        // 1. 로그인 유저면 아이디를, 비로그인이면 IP 주소를 식별자로 사용
+        String identifier = (authentication != null && authentication.isAuthenticated())
+                ? authentication.getName() 
+                : request.getRemoteAddr();
+        // 2. identifier를 BoardService로 넘겨줌
+        return ResponseEntity.ok(boardService.incrementViewCount(id, identifier));
     }
 
     @PostMapping("/posts/{id}/like")

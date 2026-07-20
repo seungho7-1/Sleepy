@@ -2,6 +2,7 @@ package com.sleepyproject.sleepy_backend.domain.board;
 
 import com.sleepyproject.sleepy_backend.domain.member.Member;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,7 +14,11 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "post", indexes = {
+    @Index(name = "idx_post_board_type", columnList = "boardType"),
+    @Index(name = "idx_post_created_at", columnList = "createdAt")
+})
 public class Post {
 
     @Id

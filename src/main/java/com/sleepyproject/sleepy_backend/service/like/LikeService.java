@@ -4,11 +4,13 @@ import com.sleepyproject.sleepy_backend.domain.board.Post;
 import com.sleepyproject.sleepy_backend.domain.like.Likes;
 import com.sleepyproject.sleepy_backend.domain.like.TargetType;
 import com.sleepyproject.sleepy_backend.domain.member.Member;
+import com.sleepyproject.sleepy_backend.domain.notification.NotificationType;
 import com.sleepyproject.sleepy_backend.domain.review.Review;
 import com.sleepyproject.sleepy_backend.repository.board.PostRepository;
 import com.sleepyproject.sleepy_backend.repository.like.LikeRepository;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.review.ReviewRepository;
+import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ public class LikeService {
     private final MemberRepository memberRepository;
     private final PostRepository postRepository;
     private final ReviewRepository reviewRepository;
+    private final NotificationService notificationService;
 
     /**
      * 좋아요 토글(추가/취소) 로직
@@ -63,9 +66,25 @@ public class LikeService {
             if (targetType == TargetType.POST) {
                 Post post = postRepository.findById(targetId).orElseThrow();
                 post.incrementLikeCount();
+                if (!post.getMember().getId().equals(member.getId())) {
+                    notificationService.createNotificationByMember(
+                            post.getMember(),
+                            NotificationType.NEW_LIKE,
+                            member.getNickname() + "님이 회원님의 게시글을 좋아합니다.",
+                            "/community/" + post.getId()
+                    );
+                }
             } else if (targetType == TargetType.REVIEW) {
                 Review review = reviewRepository.findById(targetId).orElseThrow();
                 review.incrementLikeCount();
+                if (!review.getMember().getId().equals(member.getId())) {
+                    notificationService.createNotificationByMember(
+                            review.getMember(),
+                            NotificationType.NEW_LIKE,
+                            member.getNickname() + "님이 회원님의 리뷰를 좋아합니다.",
+                            "/product/" + review.getProduct().getId()
+                    );
+                }
             }
             return true;
         }

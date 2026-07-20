@@ -21,6 +21,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private final JwtUtil jwtUtil;
 
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url}")
+    private String frontendUrl;
+
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         CustomOAuth2UserService.CustomOAuth2User customUser = (CustomOAuth2UserService.CustomOAuth2User) authentication.getPrincipal();
@@ -36,9 +39,9 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         String targetUrl;
         if (isNewUser) {
-            targetUrl = "http://localhost:5173/oauth2/onboarding?token=" + token + "&nickname=" + encodedNickname + "&username=" + username;
+            targetUrl = frontendUrl + "/oauth2/onboarding?token=" + token + "&nickname=" + encodedNickname + "&username=" + username;
         } else {
-            targetUrl = "http://localhost:5173/login?token=" + token + "&role=" + role + "&nickname=" + encodedNickname;
+            targetUrl = frontendUrl + "/login?token=" + token + "&role=" + role + "&nickname=" + encodedNickname;
         }
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }

@@ -73,6 +73,10 @@ public class Product {
     @JoinColumn(name = "seller_id")
     private Member seller;
 
+    // 태그 양방향 연관관계 (N+1 문제 해결을 위한 지연/즉시 로딩용)
+    @OneToMany(mappedBy = "product")
+    private java.util.List<ProductTag> productTags = new java.util.ArrayList<>();
+
     @Builder
     public Product(Member seller, String name, int price, String description, String imageUrl, String shopName, String purchaseUrl, 
                    Integer capacity, String texture, String scent, String color, LocalDate releaseDate, LocalDateTime createdAt,
