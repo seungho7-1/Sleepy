@@ -31,7 +31,7 @@ services:
     container_name: sleepy-app
     restart: always
     ports:
-      - "80:8080"
+      - "8080:8080"
     depends_on:
       - db
       - redis
