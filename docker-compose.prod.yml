@@ -25,7 +25,7 @@ services:
     command: redis-server --appendonly yes
 
   app:
-    build: .
+    image: ${DOCKER_IMAGE}
     container_name: sleepy-app
     restart: always
     ports:
