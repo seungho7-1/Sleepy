@@ -35,7 +35,7 @@ services:
       - redis
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - DB_URL=jdbc:mysql://db:3306/sleepy?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+      - DB_URL=jdbc:mysql://db:3306/sleepy?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
       - DB_USERNAME=root
       - DB_PASSWORD=${DB_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
