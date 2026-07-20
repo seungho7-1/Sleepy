@@ -42,6 +42,7 @@ public class BoardService {
     private final com.sleepyproject.sleepy_backend.repository.board.PostLikeRepository postLikeRepository;
     private final NotificationService notificationService;
     private final PostRedisService postRedisService;
+    private final PostLikeAsyncService postLikeAsyncService;
 
     /**
      * 커뮤니티 게시글 생성 로직
@@ -117,8 +118,8 @@ public class BoardService {
         );
     }
 
-    // 수정 전: DB의 PostLike 테이블을 직접 지웠다 썼다 하던 로직
-    // 수정 후: Redis에서 처리
+    // 수정 전: DB의 PostLike 테이블을 직접 지웠다 썼다 하던 동기 처리 로직
+    // 수정 후: Redis에서 초고속 처리 후, DB 저장은 @Async 백그라운드로 넘겨버림!
     @Transactional
     public boolean toggleLike(Long postId, String username) {
         // 1. 게시글 존재 여부 확인
@@ -131,16 +132,10 @@ public class BoardService {
         boolean isLiked = postRedisService.toggleLike(postId, username);
 
         // 3. DB 비동기(Async) 저장 처리
-        // 원래는 @Async를 써서 백그라운드로 넘겨야 완벽하지만,
-        // 일단 구조의 단순함을 위해 지금은 DB 처리도 여기서 진행합니다!
-        java.util.Optional<com.sleepyproject.sleepy_backend.domain.board.PostLike> existingLike = postLikeRepository.findByMemberAndPost(member, post);
-        if (isLiked && existingLike.isEmpty()) {
-            postLikeRepository.save(new com.sleepyproject.sleepy_backend.domain.board.PostLike(member, post));
-        } else if (!isLiked && existingLike.isPresent()) {
-            postLikeRepository.delete(existingLike.get());
-        }
+        // 원래는 현재 쓰레드가 멈춰서 기다려야 했지만, 이제 별도의 비동기 서비스로 던져버립니다!
+        postLikeAsyncService.syncLikeToDatabase(member, post, isLiked);
 
-        // 4. Redis에서의 토글 결과(true/false)를 프론트엔드로 반환!
+        // 4. DB 저장이 끝나길 기다리지 않고 Redis에서의 토글 결과(true/false)를 프론트엔드로 즉시 반환!
         return isLiked;
     }
 

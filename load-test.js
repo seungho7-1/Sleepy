@@ -1,19 +1,26 @@
-const url = 'https://sleepyslime.p-e.kr/api/products/list?page=0&size=20';
-const CONCURRENT_USERS = 1000; // 동시에 접속할 유저 수
+const http = require('http');
+
+const url = 'http://localhost:8383/api/products/list?page=0&size=20';
+const CONCURRENT_USERS = 100; // 동시에 접속할 유저 수
 
 console.log(`🚀 [부하 테스트 시작] ${CONCURRENT_USERS}명의 유저가 동시에 접속합니다...`);
 
 const startTime = Date.now();
 
-const requests = Array.from({ length: CONCURRENT_USERS }).map(() => {
-    return fetch(url)
-        .then(res => {
-            if (res.ok) {
-                return Date.now() - startTime;
-            } else {
-                throw new Error(`상태 코드 ${res.status}`);
-            }
-        });
+const requests = Array.from({ length: CONCURRENT_USERS }).map((_, i) => {
+    return new Promise((resolve, reject) => {
+        http.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => {
+                if (res.statusCode === 200) {
+                    resolve(Date.now() - startTime);
+                } else {
+                    reject(`에러 발생: 상태 코드 ${res.statusCode}`);
+                }
+            });
+        }).on('error', (err) => reject(err));
+    });
 });
 
 Promise.all(requests)
