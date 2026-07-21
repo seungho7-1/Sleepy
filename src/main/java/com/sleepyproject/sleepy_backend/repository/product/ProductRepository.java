@@ -20,4 +20,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // 특정 판매자(seller)가 등록한 상품 목록을 최신순으로 조회 (마이페이지 내 상품 목록용)
     List<Product> findBySellerIdOrderByIdDesc(Long sellerId);
     long countByCreatedAtAfter(java.time.LocalDateTime date);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"seller"})
+    @org.springframework.data.jpa.repository.Query("select p from Product p where " +
+            "(:category is null or :category = '' or p.category = :category) and " +
+            "(:keyword is null or :keyword = '' or p.name like %:keyword% or p.shopName like %:keyword%)")
+    Page<Product> findByCategoryAndKeyword(String category, String keyword, Pageable pageable);
 }

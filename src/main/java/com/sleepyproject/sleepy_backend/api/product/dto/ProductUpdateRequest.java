@@ -42,6 +42,8 @@ public class ProductUpdateRequest {
     
     private List<String> tags; // 태그
 
+    private String category; // 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY)
+
     private String videoUrl; // 비디오 주소
     private String videoType; // 비디오 타입 (FILE, LINK, NONE)
     private List<String> descriptionImageUrls; // 상세 설명 이미지 URL 목록

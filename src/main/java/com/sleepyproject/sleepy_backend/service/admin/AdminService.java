@@ -4,6 +4,7 @@ import com.sleepyproject.sleepy_backend.domain.board.Comment;
 import com.sleepyproject.sleepy_backend.domain.board.Post;
 import com.sleepyproject.sleepy_backend.domain.member.Member;
 import com.sleepyproject.sleepy_backend.domain.member.Role;
+import com.sleepyproject.sleepy_backend.domain.notification.NotificationType;
 import com.sleepyproject.sleepy_backend.domain.product.Product;
 import com.sleepyproject.sleepy_backend.domain.report.Report;
 import com.sleepyproject.sleepy_backend.domain.report.ReportStatus;
@@ -16,6 +17,7 @@ import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.product.ProductRepository;
 import com.sleepyproject.sleepy_backend.repository.report.ReportRepository;
 import com.sleepyproject.sleepy_backend.repository.seller.SellerApplicationRepository;
+import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,7 @@ public class AdminService {
     private final ReportRepository reportRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public Map<String, Long> getDashboardStats() {
@@ -113,11 +116,28 @@ public class AdminService {
                 Member author = getAuthorOfReportTarget(report);
                 if (author != null) {
                     author.updateStatus("SUSPENDED");
+                    notificationService.createNotificationByMember(
+                            author,
+                            NotificationType.SYSTEM_ALERT,
+                            "신고 조치로 인해 계정이 정지되었습니다.",
+                            "/my/profile"
+                    );
                 }
             }
         }
         
         report.resolve();
+    }
+
+    /**
+     * 신고 접수 시 관리자 전체에게 알림 발송
+     */
+    public void notifyAdminsOfNewReport(String targetTypeName, Long targetId) {
+        notificationService.notifyAllAdmins(
+                NotificationType.NEW_REPORT,
+                "새로운 신고가 접수되었습니다. (" + targetTypeName + " #" + targetId + ")",
+                "/admin/reports"
+        );
     }
 
     private Member getAuthorOfReportTarget(Report report) {
@@ -180,6 +200,14 @@ public class AdminService {
         Member member = application.getMember();
         member.updateRole(Role.SELLER);
         member.updateSellerInfo(application.getSiteUrl(), application.getSnsUrls(), application.getShopName());
+
+        // [신청자 알림] 판매자 신청 승인
+        notificationService.createNotificationByMember(
+                member,
+                NotificationType.SELLER_APPROVAL,
+                "축하합니다! 판매자 신청이 승인되었습니다.",
+                "/my/seller-status"
+        );
     }
 
     public void rejectSellerApplication(Long id, String reason) {
@@ -187,6 +215,18 @@ public class AdminService {
                 .orElseThrow(() -> new IllegalArgumentException("Seller application not found"));
         
         application.reject(reason);
+
+        // [신청자 알림] 판매자 신청 반려
+        String msg = "판매자 신청이 반려되었습니다.";
+        if (reason != null && !reason.isBlank()) {
+            msg += " 사유: " + reason;
+        }
+        notificationService.createNotificationByMember(
+                application.getMember(),
+                NotificationType.SELLER_REJECTED,
+                msg,
+                "/my/seller-status"
+        );
     }
 
     // Products

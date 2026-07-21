@@ -12,6 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
+/**
+ * DB I/O가 느려서 전체 응답 속도가 느려지는 것을 막기 위해,
+ * 오직 DB에 좋아요 데이터를 썼다/지웠다 하는 작업만 별도의 쓰레드(비동기)에서 처리하게 만드는 클래스입니다.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -19,29 +23,24 @@ public class PostLikeAsyncService {
 
     private final PostLikeRepository postLikeRepository;
 
-    /**
-     * 비동기로 좋아요 상태를 DB에 동기화합니다.
-     * @Async 어노테이션이 작동하려면 반드시 별도의 클래스(Bean)로 분리해서 호출해야 합니다.
-     * (같은 클래스 안에서 호출하면 프록시를 타지 않아 비동기로 동작하지 않음)
-     */
     @Async
     @Transactional
     public void syncLikeToDatabase(Member member, Post post, boolean isLiked) {
-        log.info("[Async] 백그라운드 DB 동기화 시작 - 게시글 ID: {}, 유저: {}, 좋아요 상태: {}", 
-                 post.getId(), member.getUsername(), isLiked);
-                 
         try {
             Optional<PostLike> existingLike = postLikeRepository.findByMemberAndPost(member, post);
-
+            
+            // 만약 유저가 좋아요를 눌렀는데 DB엔 없다면 추가
             if (isLiked && existingLike.isEmpty()) {
                 postLikeRepository.save(new PostLike(member, post));
-            } else if (!isLiked && existingLike.isPresent()) {
+            } 
+            // 유저가 좋아요를 취소했는데 DB엔 여전히 있다면 삭제
+            else if (!isLiked && existingLike.isPresent()) {
                 postLikeRepository.delete(existingLike.get());
             }
             
-            log.info("[Async] 백그라운드 DB 동기화 완료!");
+            log.info("DB 비동기 좋아요 동기화 완료: postId={}, userId={}, isLiked={}", post.getId(), member.getId(), isLiked);
         } catch (Exception e) {
-            log.error("[Async] DB 동기화 중 에러 발생: {}", e.getMessage(), e);
+            log.error("DB 비동기 좋아요 동기화 중 에러 발생: postId={}, userId={}", post.getId(), member.getId(), e);
         }
     }
 }

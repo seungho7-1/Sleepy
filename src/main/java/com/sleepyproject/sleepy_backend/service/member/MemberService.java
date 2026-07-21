@@ -31,6 +31,9 @@ public class MemberService {
     private final ProductTagRepository productTagRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final com.sleepyproject.sleepy_backend.service.MailService mailService;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    private final com.sleepyproject.sleepy_backend.repository.NotificationRepository notificationRepository;
 
     /**
      * 회원가입 비즈니스 로직
@@ -152,7 +155,8 @@ public class MemberService {
                             p.getVideoUrl(),
                             p.getVideoType(),
                             p.getImageUrlList(),
-                            p.getDescriptionImageUrlList()
+                            p.getDescriptionImageUrlList(),
+                            p.getCategory()
                     );
                 })
                 .collect(Collectors.toList());
@@ -234,6 +238,7 @@ public class MemberService {
             }
         }
 
+        notificationRepository.deleteByMemberId(member.getId());
         memberRepository.delete(member);
     }
 
@@ -264,5 +269,52 @@ public class MemberService {
 
     public boolean checkNicknameExists(String nickname) {
         return memberRepository.existsByNickname(nickname);
+    }
+
+    public boolean checkEmailExists(String email) {
+        return memberRepository.existsByEmail(email);
+    }
+
+    public void sendPasswordResetCode(PasswordResetSendCodeRequest request) {
+        Member member = memberRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new IllegalArgumentException("아이디가 존재하지 않습니다."));
+        if (!request.getEmail().equals(member.getEmail())) {
+            throw new IllegalArgumentException("아이디와 이메일이 일치하지 않습니다.");
+        }
+        
+        String authCode = String.format("%06d", new java.util.Random().nextInt(1000000));
+        
+        redisTemplate.opsForValue().set(
+            "PW_RESET:" + request.getEmail(), 
+            authCode, 
+            java.time.Duration.ofMinutes(3)
+        );
+        
+        mailService.sendAuthCodeEmail(request.getEmail(), authCode);
+    }
+
+    public boolean verifyPasswordResetCode(PasswordResetVerifyCodeRequest request) {
+        String savedCode = redisTemplate.opsForValue().get("PW_RESET:" + request.getEmail());
+        if (savedCode != null && savedCode.equals(request.getCode())) {
+            // 인증이 완료되면 5분짜리 비밀번호 변경 허용 토큰으로 변경
+            redisTemplate.delete("PW_RESET:" + request.getEmail());
+            redisTemplate.opsForValue().set("PW_RESET_AUTH:" + request.getEmail(), "TRUE", java.time.Duration.ofMinutes(5));
+            return true;
+        }
+        return false;
+    }
+
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
+        String isAuth = redisTemplate.opsForValue().get("PW_RESET_AUTH:" + request.getEmail());
+        if (isAuth == null || !isAuth.equals("TRUE")) {
+            throw new IllegalArgumentException("이메일 인증이 완료되지 않았거나 만료되었습니다.");
+        }
+        
+        Member member = memberRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+                
+        member.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+        redisTemplate.delete("PW_RESET_AUTH:" + request.getEmail());
     }
 }

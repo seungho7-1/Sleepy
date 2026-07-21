@@ -44,7 +44,7 @@ jobs:
             git pull origin main
 
             echo "2. 도커 이미지 빌드 및 재시작"
-            docker-compose -f docker-compose.prod.yml up --build -d app
+            docker compose -f docker-compose.prod.yml up --build -d app
 
             echo "3. 안 쓰는 예전 이미지 삭제 (용량 확보)"
             docker image prune -f

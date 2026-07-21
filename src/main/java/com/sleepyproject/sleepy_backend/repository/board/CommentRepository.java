@@ -15,4 +15,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @EntityGraph(attributePaths = {"member", "post", "review"})
     List<Comment> findByMemberUsernameOrderByCreatedAtDesc(String username);
     long countByCreatedAtAfter(java.time.LocalDateTime date);
+    
+    void deleteAllByPost(com.sleepyproject.sleepy_backend.domain.board.Post post);
 }

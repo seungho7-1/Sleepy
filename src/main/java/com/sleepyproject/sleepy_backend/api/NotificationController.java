@@ -56,4 +56,11 @@ public class NotificationController {
         notificationService.markAsRead(id, username);
         return ResponseEntity.ok(Map.of("message", "Notification marked as read"));
     }
+
+    @PutMapping("/read-all")
+    public ResponseEntity<?> markAllAsRead(Authentication authentication) {
+        String username = (String) authentication.getPrincipal();
+        notificationService.markAllAsRead(username);
+        return ResponseEntity.ok(Map.of("message", "All notifications marked as read"));
+    }
 }

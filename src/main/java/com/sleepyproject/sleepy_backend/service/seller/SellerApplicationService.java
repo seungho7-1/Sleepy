@@ -2,10 +2,12 @@ package com.sleepyproject.sleepy_backend.service.seller;
 
 import com.sleepyproject.sleepy_backend.domain.member.Member;
 import com.sleepyproject.sleepy_backend.domain.member.Role;
+import com.sleepyproject.sleepy_backend.domain.notification.NotificationType;
 import com.sleepyproject.sleepy_backend.domain.seller.ApplicationStatus;
 import com.sleepyproject.sleepy_backend.domain.seller.SellerApplication;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.seller.SellerApplicationRepository;
+import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,8 +20,12 @@ public class SellerApplicationService {
 
     private final SellerApplicationRepository applicationRepository;
     private final MemberRepository memberRepository;
+    private final NotificationService notificationService;
 
-    //판매자 등록
+    /**
+     * 판매자 신청 등록.
+     * 신청 저장 후 모든 관리자에게 NEW_SELLER_APPLICATION 알림을 발송합니다.
+     */
     @Transactional
     public void submitApplication(String username, String siteUrl, String introduction, String shopName, String snsUrls) {
         Member member = memberRepository.findByUsername(username)
@@ -34,6 +40,13 @@ public class SellerApplicationService {
                 .status(ApplicationStatus.PENDING)
                 .build();
         applicationRepository.save(application);
+
+        // [관리자 알림] 새 판매자 신청이 접수되면 모든 관리자에게 알림
+        notificationService.notifyAllAdmins(
+                NotificationType.NEW_SELLER_APPLICATION,
+                "새로운 판매자 신청이 접수되었습니다. (" + shopName + ")",
+                "/admin/sellers"
+        );
     }
 
     @Transactional(readOnly = true)

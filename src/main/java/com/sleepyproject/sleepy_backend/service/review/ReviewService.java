@@ -3,11 +3,13 @@ package com.sleepyproject.sleepy_backend.service.review;
 import com.sleepyproject.sleepy_backend.api.review.dto.ReviewRequest;
 import com.sleepyproject.sleepy_backend.api.review.dto.ReviewResponse;
 import com.sleepyproject.sleepy_backend.domain.member.Member;
+import com.sleepyproject.sleepy_backend.domain.notification.NotificationType;
 import com.sleepyproject.sleepy_backend.domain.product.Product;
 import com.sleepyproject.sleepy_backend.domain.review.Review;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.product.ProductRepository;
 import com.sleepyproject.sleepy_backend.repository.review.ReviewRepository;
+import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,12 +28,14 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ProductRepository productRepository;
     private final MemberRepository memberRepository;
+    private final NotificationService notificationService;
 
     /**
      * 리뷰 등록 로직
+     * 리뷰 저장 후 해당 상품의 판매자에게 NEW_REVIEW 알림을 발송합니다.
      *
      * @param request 리뷰 생성 요청 DTO (상품 ID, 평점, 내용, 이미지 URL)
-     * @param email   요청한 유저 이메일
+     * @param username 요청한 유저 username
      * @return 등록된 리뷰의 ID
      */
     @Transactional
@@ -51,7 +55,20 @@ public class ReviewService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        return reviewRepository.save(review).getId();
+        Review saved = reviewRepository.save(review);
+
+        // [판매자 알림] 내 상품에 새 리뷰가 등록되면 판매자에게 알림
+        Member seller = product.getSeller();
+        if (seller != null && !seller.getId().equals(member.getId())) {
+            notificationService.createNotificationByMember(
+                    seller,
+                    NotificationType.NEW_REVIEW,
+                    member.getNickname() + "님이 " + product.getName() + "에 리뷰를 남겼습니다.",
+                    "/product/" + product.getId()
+            );
+        }
+
+        return saved.getId();
     }
 
     /**

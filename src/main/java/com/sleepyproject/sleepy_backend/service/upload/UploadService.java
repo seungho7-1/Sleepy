@@ -41,7 +41,18 @@ public class UploadService {
         String originalFilename = file.getOriginalFilename();
         String extension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+        }
+
+        // 보안: 이미지 및 비디오 파일 확장자 화이트리스트 검증 (아이폰 heic 추가)
+        java.util.List<String> allowedExtensions = java.util.List.of(".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".mp4", ".webm", ".mov", ".avi");
+        if (!allowedExtensions.contains(extension)) {
+            // 프론트엔드 이미지 압축기가 확장자를 날려먹은 경우(blob 등) 강제로 .jpg 처리
+            if (extension.isEmpty() || extension.equals(".blob")) {
+                extension = ".jpg";
+            } else {
+                throw new IllegalArgumentException("허용되지 않는 파일 확장자입니다: " + extension);
+            }
         }
 
         // 업로드 타입에 따라 S3 물리 폴더 경로(Key Prefix) 분기 처리

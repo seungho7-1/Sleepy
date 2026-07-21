@@ -14,4 +14,7 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     Optional<Wishlist> findByMemberAndProduct(Member member, Product product);
     List<Wishlist> findByMember(Member member);
     void deleteByProduct(Product product);
+
+    /** 특정 판매자의 상품 중 하나라도 찜한 회원 목록 (중복 포함) */
+    List<Wishlist> findByProductSellerId(Long sellerId);
 }

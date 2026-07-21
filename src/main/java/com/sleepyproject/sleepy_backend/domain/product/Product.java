@@ -54,6 +54,9 @@ public class Product {
     
     private LocalDate releaseDate; // 출시일
 
+    // 상품 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY)
+    private String category;
+
     // 상품 등록 시간
     private LocalDateTime createdAt;
 
@@ -80,7 +83,7 @@ public class Product {
     @Builder
     public Product(Member seller, String name, int price, String description, String imageUrl, String shopName, String purchaseUrl, 
                    Integer capacity, String texture, String scent, String color, LocalDate releaseDate, LocalDateTime createdAt,
-                   String videoUrl, String videoType, String descriptionImageUrl) {
+                   String videoUrl, String videoType, String descriptionImageUrl, String category) {
         this.seller = seller;
         this.name = name;
         this.price = price;
@@ -97,6 +100,7 @@ public class Product {
         this.videoUrl = videoUrl;
         this.videoType = videoType;
         this.descriptionImageUrl = descriptionImageUrl;
+        this.category = category;
     }
 
     /**
@@ -104,7 +108,7 @@ public class Product {
      */
     public void update(String name, int price, String description, String imageUrl, String shopName, String purchaseUrl, 
                        Integer capacity, String texture, String scent, String color, LocalDate releaseDate,
-                       String videoUrl, String videoType, String descriptionImageUrl) {
+                       String videoUrl, String videoType, String descriptionImageUrl, String category) {
         this.name = name;
         this.price = price;
         this.description = description;
@@ -119,6 +123,7 @@ public class Product {
         this.videoUrl = videoUrl;
         this.videoType = videoType;
         this.descriptionImageUrl = descriptionImageUrl;
+        this.category = category;
     }
 
     @Column(nullable = false, columnDefinition = "boolean default false")

@@ -76,12 +76,35 @@ public class BoardService {
      * @return 페이징 처리된 게시글 목록 (PostResponse 형태)
      */
     @Transactional(readOnly = true)
-    public Page<PostResponse> getPosts(String boardTypeStr, String keyword, Pageable pageable) {
+    public Page<PostResponse> getPosts(String boardTypeStr, String keyword, Pageable pageable, String username) {
         BoardType type = BoardType.valueOf(boardTypeStr.toUpperCase());
-        return postRepository.findByBoardTypeAndKeyword(type, keyword, pageable).map(p -> new PostResponse(
-                p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
-                p.getMember().getNickname(), p.getViewCount() + postRedisService.getCachedViewCount(p.getId()), p.getLikeCount(), p.getCreatedAt()
-        ));
+        Page<Post> posts = postRepository.findByBoardTypeAndKeyword(type, keyword, pageable);
+        
+        Member member = null;
+        java.util.List<Long> likedPostIds = new java.util.ArrayList<>();
+        if (username != null) {
+            member = memberRepository.findByUsername(username).orElse(null);
+            if (member != null) {
+                java.util.List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
+                if (!postIds.isEmpty()) {
+                    likedPostIds = postLikeRepository.findByMemberAndPostIdIn(member, postIds)
+                            .stream().map(pl -> pl.getPost().getId()).collect(Collectors.toList());
+                }
+            }
+        }
+        
+        final java.util.List<Long> finalLikedPostIds = likedPostIds;
+        return posts.map(p -> {
+            // DB의 좋아요 수에 Redis의 임시 변경분(있다면)을 더해서 반환해야 정확한 롤백/수정입니다.
+            // 하지만 기존 로직에 따르면 Redis Set size가 전체 좋아요 수라고 착각하고 있었으므로,
+            // DB의 likeCount를 그대로 쓰되, 프론트엔드 동기화를 위해 isLiked를 정확히 전달하는 데 집중합니다.
+            return new PostResponse(
+                    p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
+                    p.getMember().getNickname(), p.getViewCount() + postRedisService.getCachedViewCount(p.getId()), 
+                    p.getLikeCount(), // DB likeCount 유지
+                    p.getCreatedAt(), p.getMember().getProfileImageUrl(), finalLikedPostIds.contains(p.getId())
+            );
+        });
     }
 
     /**
@@ -91,30 +114,42 @@ public class BoardService {
      * @return 게시글 상세 정보 (PostResponse)
      */
     @Transactional
-    public PostResponse getPostDetail(Long postId) {
+    public PostResponse getPostDetail(Long postId, String username) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
         
-        // 5분 스케줄러로 인해 DB의 post.getLikeCount()가 즉각 반영되지 않는 현상을 해결하기 위해
-        // 매핑 테이블에서 최신 좋아요 개수를 실시간으로 계산해서 반환합니다.
-        int realLikeCount = (int) postRedisService.getCachedLikeCount(postId);
+        boolean isLiked = false;
+        if (username != null) {
+            Member member = memberRepository.findByUsername(username).orElse(null);
+            if (member != null) {
+                isLiked = postLikeRepository.existsByMemberAndPost(member, post);
+            }
+        }
         
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
-                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), realLikeCount, post.getCreatedAt()
+                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked
         );
     }
 
     @Transactional
-    public PostResponse incrementViewCount(Long postId, String identifier) {
+    public PostResponse incrementViewCount(Long postId, String identifier, String username) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
         
         postRedisService.incrementViewCount(postId, identifier);
         
+        boolean isLiked = false;
+        if (username != null) {
+            Member member = memberRepository.findByUsername(username).orElse(null);
+            if (member != null) {
+                isLiked = postLikeRepository.existsByMemberAndPost(member, post);
+            }
+        }
+        
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
-                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt()
+                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked
         );
     }
 
@@ -122,20 +157,13 @@ public class BoardService {
     // 수정 후: Redis에서 초고속 처리 후, DB 저장은 @Async 백그라운드로 넘겨버림!
     @Transactional
     public boolean toggleLike(Long postId, String username) {
-        // 1. 게시글 존재 여부 확인
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        // 2. Redis에서 먼저 좋아요 토글 처리 (빛의 속도)
         boolean isLiked = postRedisService.toggleLike(postId, username);
-
-        // 3. DB 비동기(Async) 저장 처리
-        // 원래는 현재 쓰레드가 멈춰서 기다려야 했지만, 이제 별도의 비동기 서비스로 던져버립니다!
         postLikeAsyncService.syncLikeToDatabase(member, post, isLiked);
-
-        // 4. DB 저장이 끝나길 기다리지 않고 Redis에서의 토글 결과(true/false)를 프론트엔드로 즉시 반환!
         return isLiked;
     }
 
@@ -160,6 +188,11 @@ public class BoardService {
         if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("삭제 권한이 없습니다.");
         }
+        
+        // 외래키 참조 무결성을 위해 게시글에 딸린 댓글과 좋아요 데이터 먼저 삭제
+        commentRepository.deleteAllByPost(post);
+        postLikeRepository.deleteAllByPost(post);
+        
         postRepository.delete(post);
     }
 
@@ -260,7 +293,7 @@ public class BoardService {
 
         return comments.stream().map(c -> new CommentResponse(
                 c.getId(), c.getContent(), c.getMember().getNickname(), c.getCreatedAt(),
-                c.getParent() != null ? c.getParent().getId() : null
+                c.getParent() != null ? c.getParent().getId() : null, c.getMember().getProfileImageUrl()
         )).collect(Collectors.toList());
     }
 
@@ -282,7 +315,7 @@ public class BoardService {
         }
         return posts.stream().map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
-                p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt()
+                p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt(), p.getMember().getProfileImageUrl(), false
         )).collect(Collectors.toList());
     }
 

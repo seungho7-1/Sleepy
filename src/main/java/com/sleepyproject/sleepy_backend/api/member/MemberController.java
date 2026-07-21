@@ -38,7 +38,10 @@ public class MemberController {
     private String naverSecret;
 
     @GetMapping("/debug-secrets")
-    public ResponseEntity<?> debugSecrets() {
+    public ResponseEntity<?> debugSecrets(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다."));
+        }
         return ResponseEntity.ok(Map.of(
             "kakaoId", mask(kakaoId),
             "kakaoSecret", mask(kakaoSecret),
@@ -196,8 +199,17 @@ public class MemberController {
         return ResponseEntity.ok(Map.of("exists", exists));
     }
 
+    @GetMapping("/check-email")
+    public ResponseEntity<?> checkEmail(@RequestParam("email") String email) {
+        boolean exists = memberService.checkEmailExists(email);
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
     @GetMapping("/reset-db")
-    public ResponseEntity<?> resetDb() {
+    public ResponseEntity<?> resetDb(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다."));
+        }
         try {
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
             jdbcTemplate.execute("TRUNCATE TABLE board_comment");
@@ -216,6 +228,10 @@ public class MemberController {
 
     @PostMapping("/seed-admin")
     public ResponseEntity<?> seedAdmin() {
+        boolean adminExists = memberRepository.findAll().stream().anyMatch(m -> m.getRole() == com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN);
+        if (adminExists) {
+            return ResponseEntity.status(403).body(Map.of("error", "이미 관리자 계정이 존재합니다."));
+        }
         try {
             SignupRequest request = new SignupRequest();
             request.setUsername("admin");
@@ -234,6 +250,28 @@ public class MemberController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @PostMapping("/password/send-code")
+    public ResponseEntity<?> sendPasswordResetCode(@RequestBody PasswordResetSendCodeRequest request) {
+        memberService.sendPasswordResetCode(request);
+        return ResponseEntity.ok(Map.of("message", "인증 코드가 이메일로 발송되었습니다."));
+    }
+
+    @PostMapping("/password/verify-code")
+    public ResponseEntity<?> verifyPasswordResetCode(@RequestBody PasswordResetVerifyCodeRequest request) {
+        boolean isValid = memberService.verifyPasswordResetCode(request);
+        if (isValid) {
+            return ResponseEntity.ok(Map.of("message", "인증이 완료되었습니다.", "valid", true));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("error", "인증 코드가 올바르지 않거나 만료되었습니다.", "valid", false));
+        }
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<?> resetPassword(@RequestBody PasswordResetRequest request) {
+        memberService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", "비밀번호가 성공적으로 변경되었습니다."));
     }
 
     @lombok.Data

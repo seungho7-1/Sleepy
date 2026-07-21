@@ -54,12 +54,13 @@ public class ProductController {
      */
     @GetMapping("/list")
     public ResponseEntity<?> list(
+            @RequestParam(required = false) String category,
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        return ResponseEntity.ok(productService.getProducts(keyword, pageable));
+        return ResponseEntity.ok(productService.getProducts(category, keyword, pageable));
     }
 
     /**

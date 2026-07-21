@@ -50,4 +50,6 @@ public class ProductResponse {
     private String videoType; // 비디오 타입 (FILE, LINK, NONE)
     private List<String> imageUrls; // 최대 5개 이미지 리스트
     private List<String> descriptionImageUrls; // 상세 설명 이미지 URL 목록
+    
+    private String category; // 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY)
 }

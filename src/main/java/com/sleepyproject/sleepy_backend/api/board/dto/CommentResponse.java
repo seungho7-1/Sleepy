@@ -13,4 +13,5 @@ public class CommentResponse {
     private String nickname;
     private LocalDateTime createdAt;
     private Long parentId; // 부모 댓글 ID (대댓글용)
+    private String profileImageUrl;
 }

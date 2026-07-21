@@ -48,6 +48,7 @@ public class ProductService {
     private final TagRepository tagRepository;
     private final ProductTagRepository productTagRepository;
     private final com.sleepyproject.sleepy_backend.repository.review.ReviewRepository reviewRepository;
+    private final com.sleepyproject.sleepy_backend.service.notification.NotificationService notificationService;
 
     /**
      * 전체 상품 목록 조회 로직
@@ -91,6 +92,7 @@ public class ProductService {
                 .videoUrl(request.getVideoUrl())
                 .videoType(request.getVideoType())
                 .descriptionImageUrl(descImagesString)
+                .category(request.getCategory())
                 .build();
 
         productRepository.save(product);
@@ -102,6 +104,19 @@ public class ProductService {
                 productTagRepository.save(new ProductTag(product, tag));
             }
         }
+
+        // [찜 알림] 이 판매자를 찜한 유저들에게 신상품 등록 알림 발송
+        // 중복 알림 방지를 위해 회원 ID 기준으로 distinct 처리
+        wishlistRepository.findByProductSellerId(seller.getId()).stream()
+                .map(w -> w.getMember())
+                .filter(m -> !m.getId().equals(seller.getId()))
+                .distinct()
+                .forEach(wishlistMember -> notificationService.createNotificationByMember(
+                        wishlistMember,
+                        com.sleepyproject.sleepy_backend.domain.notification.NotificationType.WISHLIST_UPDATE,
+                        seller.getShopName() + " 스토어에 새 슬라임이 등록되었습니다! - " + product.getName(),
+                        "/product/" + product.getId()
+                ));
 
         return product.getId();
     }
@@ -147,7 +162,8 @@ public class ProductService {
                 request.getReleaseDate(),
                 request.getVideoUrl(),
                 request.getVideoType(),
-                descImagesString
+                descImagesString,
+                request.getCategory()
         );
         
         productTagRepository.deleteByProduct(product);
@@ -197,17 +213,11 @@ public class ProductService {
      * @return DTO인 ProductResponse로 변환된 Page 객체 반환
      */
     @Transactional
-    public Page<ProductResponse> getProducts(String keyword, Pageable pageable) {
+    public Page<ProductResponse> getProducts(String category, String keyword, Pageable pageable) {
         Page<Product> products;
 
-        // 키워드가 없을 경우 전체 데이터를 페이징 조회하고, 있을 경우 키워드가 포함된 상품명 또는 스토어명을 검색함.
-        if (keyword == null || keyword.isBlank()) {
-            log.info("키워드가 없으므로 전체 상품 조회");
-            products = productRepository.findAll(pageable);
-        } else {
-            log.info("키워드로 검색 진행: {}", keyword);
-            products = productRepository.findByNameContainingOrShopNameContaining(keyword, keyword, pageable);
-        }
+        log.info("카테고리: {}, 키워드로 검색 진행: {}", category, keyword);
+        products = productRepository.findByCategoryAndKeyword(category, keyword, pageable);
 
         // DB에서 가져온 엔티티 Page 객체를 응답용 DTO(ProductResponse) Page 객체로 매핑/변환
         return products.map(p -> {
@@ -232,7 +242,8 @@ public class ProductService {
                     p.getVideoUrl(),
                     p.getVideoType(),
                     p.getImageUrlList(),
-                    p.getDescriptionImageUrlList()
+                    p.getDescriptionImageUrlList(),
+                    p.getCategory()
             );
         });
     }
@@ -272,7 +283,8 @@ public class ProductService {
                 product.getVideoUrl(),
                 product.getVideoType(),
                 product.getImageUrlList(),
-                product.getDescriptionImageUrlList()
+                product.getDescriptionImageUrlList(),
+                product.getCategory()
         );
     }
 
@@ -284,8 +296,8 @@ public class ProductService {
      * @return 위시리스트 추가 시 true, 삭제 시 false 반환
      */
     @Transactional
-    public boolean toggleWishlist(Long productId, String email) {
-        Member member = memberRepository.findByEmail(email)
+    public boolean toggleWishlist(Long productId, String username) {
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
@@ -310,8 +322,8 @@ public class ProductService {
      * @param email 요청한 유저 이메일
      * @return 유저가 찜한 상품 목록 (ProductResponse 리스트)
      */
-    public List<ProductResponse> getWishlist(String email) {
-        Member member = memberRepository.findByEmail(email)
+    public List<ProductResponse> getWishlist(String username) {
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
 
         List<com.sleepyproject.sleepy_backend.domain.product.Wishlist> list = wishlistRepository.findByMember(member);
@@ -324,7 +336,8 @@ public class ProductService {
                     p.getId(), p.getName(), p.getPrice(), p.getDescription(), p.getFirstImageUrl(),
                     p.getShopName(), p.getPurchaseUrl(), p.getSeller().getId(),
                     p.getCapacity(), p.getTexture(), p.getScent(), p.getColor(), p.getReleaseDate(), tags,
-                    p.getVideoUrl(), p.getVideoType(), p.getImageUrlList(), p.getDescriptionImageUrlList()
+                    p.getVideoUrl(), p.getVideoType(), p.getImageUrlList(), p.getDescriptionImageUrlList(),
+                    p.getCategory()
             );
         }).collect(Collectors.toList());
     }

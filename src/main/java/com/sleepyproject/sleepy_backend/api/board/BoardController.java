@@ -45,8 +45,10 @@ public class BoardController {
     public ResponseEntity<?> getPosts(
             @RequestParam String type, 
             @RequestParam(required = false, defaultValue = "") String keyword, 
-            @PageableDefault(size = 10) Pageable pageable) {
-        return ResponseEntity.ok(boardService.getPosts(type, keyword, pageable));
+            @PageableDefault(size = 10) Pageable pageable,
+            Authentication authentication) {
+        String username = authentication != null ? authentication.getName() : null;
+        return ResponseEntity.ok(boardService.getPosts(type, keyword, pageable, username));
     }
 
     /**
@@ -56,18 +58,16 @@ public class BoardController {
      * @return 게시글 상세 내용 DTO
      */
     @GetMapping("/posts/{id}")
-    public ResponseEntity<?> getPostDetail(@PathVariable Long id) {
-        return ResponseEntity.ok(boardService.getPostDetail(id));
+    public ResponseEntity<?> getPostDetail(@PathVariable Long id, Authentication authentication) {
+        String username = authentication != null ? authentication.getName() : null;
+        return ResponseEntity.ok(boardService.getPostDetail(id, username));
     }
 
     @PostMapping("/posts/{id}/view")
     public ResponseEntity<?> incrementViewCount(@PathVariable Long id, HttpServletRequest request, Authentication authentication) {
-        // 1. 로그인 유저면 아이디를, 비로그인이면 IP 주소를 식별자로 사용
-        String identifier = (authentication != null && authentication.isAuthenticated())
-                ? authentication.getName() 
-                : request.getRemoteAddr();
-        // 2. identifier를 BoardService로 넘겨줌
-        return ResponseEntity.ok(boardService.incrementViewCount(id, identifier));
+        String username = authentication != null && authentication.isAuthenticated() ? authentication.getName() : null;
+        String identifier = username != null ? username : request.getRemoteAddr();
+        return ResponseEntity.ok(boardService.incrementViewCount(id, identifier, username));
     }
 
     @PostMapping("/posts/{id}/like")

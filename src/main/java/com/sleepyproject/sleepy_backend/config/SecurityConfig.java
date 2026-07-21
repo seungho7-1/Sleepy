@@ -63,7 +63,7 @@ public class SecurityConfig {
                 // URL 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         // 1. 회원가입, 로그인 등 인증 관련 공개 API
-                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/debug-secrets", "/api/auth/check-username", "/api/auth/check-nickname", "/api/auth/reset-db", "/api/auth/seed-admin").permitAll()
+                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/check-username", "/api/auth/check-nickname", "/api/auth/check-email", "/api/auth/seed-admin", "/api/auth/password/**").permitAll()
                         
                         // 2. 상품 조회 관련 공개 API (GET만 허가)
                         .requestMatchers(HttpMethod.GET, "/api/products/list", "/api/products/detail/**").permitAll()

@@ -19,4 +19,6 @@ public class PostResponse {
     private int viewCount;
     private int likeCount;
     private LocalDateTime createdAt;
+    private String profileImageUrl;
+    private boolean isLiked; // 현재 유저의 좋아요 여부
 }
