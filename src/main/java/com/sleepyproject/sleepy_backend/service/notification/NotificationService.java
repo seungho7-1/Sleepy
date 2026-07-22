@@ -105,29 +105,36 @@ public class NotificationService {
         try {
             String projectId = "sleepy-frontend-eac65";
             String apiKey = "AIzaSyCko0AeT3hjwvGBlGydpJ-PjA445Txswxw";
-            String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString());
+            String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString()).replace("+", "%20");
             String urlStr = String.format("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/notifications/%s/userNotifications/%d?key=%s", 
                 projectId, encodedNickname, notification.getId(), apiKey);
-            java.net.URI uri = java.net.URI.create(urlStr);
 
-            RestTemplate restTemplate = new RestTemplate();
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-HTTP-Method-Override", "PATCH");
+            String jsonBody = String.format(
+                "{\"fields\": {" +
+                "\"id\": {\"integerValue\": \"%d\"}," +
+                "\"type\": {\"stringValue\": \"%s\"}," +
+                "\"message\": {\"stringValue\": \"%s\"}," +
+                "\"relatedUrl\": {\"stringValue\": \"%s\"}," +
+                "\"isRead\": {\"booleanValue\": %b}," +
+                "\"createdAt\": {\"integerValue\": \"%d\"}" +
+                "}}",
+                notification.getId(),
+                notification.getType().name(),
+                notification.getMessage().replace("\"", "\\\""),
+                notification.getRelatedUrl() != null ? notification.getRelatedUrl() : "",
+                notification.isRead(),
+                notification.getCreatedAt().toEpochSecond(java.time.ZoneOffset.UTC) * 1000
+            );
 
-            Map<String, Object> body = new HashMap<>();
-            Map<String, Object> fields = new HashMap<>();
-            fields.put("id", Map.of("integerValue", notification.getId()));
-            fields.put("type", Map.of("stringValue", notification.getType().name()));
-            fields.put("message", Map.of("stringValue", notification.getMessage()));
-            fields.put("relatedUrl", Map.of("stringValue", notification.getRelatedUrl() != null ? notification.getRelatedUrl() : ""));
-            fields.put("isRead", Map.of("booleanValue", notification.isRead()));
-            fields.put("createdAt", Map.of("integerValue", notification.getCreatedAt().toEpochSecond(java.time.ZoneOffset.UTC) * 1000));
-            body.put("fields", fields);
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(urlStr))
+                    .header("Content-Type", "application/json")
+                    .header("X-HTTP-Method-Override", "PATCH")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-
-            restTemplate.exchange(uri, HttpMethod.POST, entity, String.class);
+            client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -140,28 +147,21 @@ public class NotificationService {
             
             String projectId = "sleepy-frontend-eac65";
             String apiKey = "AIzaSyCko0AeT3hjwvGBlGydpJ-PjA445Txswxw";
-            String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString());
+            String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString()).replace("+", "%20");
             String urlStr = String.format("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/notifications/%s/userNotifications/%d?updateMask.fieldPaths=isRead&key=%s", 
                 projectId, encodedNickname, notificationId, apiKey);
-            java.net.URI uri = java.net.URI.create(urlStr);
 
-            RestTemplate restTemplate = new RestTemplate();
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-HTTP-Method-Override", "PATCH");
+            String jsonBody = "{\"fields\": {\"isRead\": {\"booleanValue\": true}}}";
 
-            Map<String, Object> body = new HashMap<>();
-            Map<String, Object> fields = new HashMap<>();
-            fields.put("isRead", Map.of("booleanValue", true));
-            body.put("fields", fields);
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(urlStr))
+                    .header("Content-Type", "application/json")
+                    .header("X-HTTP-Method-Override", "PATCH")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-
-            restTemplate.exchange(uri, HttpMethod.POST, entity, String.class);
-        } catch (org.springframework.web.client.HttpStatusCodeException e) {
-            System.err.println("Firebase update failed: " + e.getStatusCode());
-            System.err.println("Response body: " + e.getResponseBodyAsString());
-            e.printStackTrace();
+            client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
         } catch (Exception e) {
             e.printStackTrace();
         }

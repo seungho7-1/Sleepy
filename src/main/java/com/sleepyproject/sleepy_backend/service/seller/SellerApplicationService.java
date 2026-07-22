@@ -53,7 +53,7 @@ public class SellerApplicationService {
         notificationService.notifyAllAdmins(
                 NotificationType.NEW_SELLER_APPLICATION,
                 "새로운 판매자 신청이 접수되었습니다. (" + shopName + ")",
-                "/admin/sellers"
+                "/admin/applications"
         );
     }
 

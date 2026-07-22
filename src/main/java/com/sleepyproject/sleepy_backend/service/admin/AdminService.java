@@ -218,7 +218,7 @@ public class AdminService {
                 member,
                 NotificationType.SELLER_APPROVAL,
                 "축하합니다! 판매자 신청이 승인되었습니다.",
-                "/my/seller-status"
+                "/mypage"
         );
     }
 
@@ -237,7 +237,7 @@ public class AdminService {
                 application.getMember(),
                 NotificationType.SELLER_REJECTED,
                 msg,
-                "/my/seller-status"
+                "/mypage"
         );
     }
 
