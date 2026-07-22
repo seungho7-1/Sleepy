@@ -7,13 +7,15 @@ import java.time.LocalDateTime;
 
 @Getter
 @AllArgsConstructor
-public class ReviewResponse {
+public class SellerReviewResponse {
     private Long id;
+    private Long productId;
+    private String productName;
     private int rating;
     private String content;
-    private String nickname; // 작성자 닉네임
+    private String nickname;
     private String imageUrl;
-    private int likeCount;
     private boolean isHidden;
+    private int reportCount;
     private LocalDateTime createdAt;
 }

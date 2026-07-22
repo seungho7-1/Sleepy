@@ -52,4 +52,7 @@ public class ProductResponse {
     private List<String> descriptionImageUrls; // 상세 설명 이미지 URL 목록
     
     private String category; // 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY)
+    
+    private long reviewCount; // 리뷰 수
+    private String sellerProfileImageUrl; // 판매자 프로필 이미지
 }

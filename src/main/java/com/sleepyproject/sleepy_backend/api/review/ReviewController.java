@@ -2,8 +2,10 @@ package com.sleepyproject.sleepy_backend.api.review;
 
 import com.sleepyproject.sleepy_backend.api.review.dto.ReviewRequest;
 import com.sleepyproject.sleepy_backend.api.review.dto.ReviewResponse;
+import com.sleepyproject.sleepy_backend.api.review.dto.SellerReviewResponse;
 import com.sleepyproject.sleepy_backend.service.review.ReviewService;
 import lombok.RequiredArgsConstructor;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -52,5 +54,24 @@ public class ReviewController {
         
         Long reviewId = reviewService.create(request, authentication.getName());
         return ResponseEntity.ok(reviewId);
+    }
+
+    /**
+     * 리뷰 신고 API
+     */
+    @PostMapping("/{reviewId}/report")
+    public ResponseEntity<Void> reportReview(
+            @PathVariable("reviewId") Long reviewId,
+            Authentication authentication) {
+        reviewService.reportReview(reviewId, authentication.getName());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 특정 판매자의 모든 리뷰 조회 (판매자 대시보드용)
+     */
+    @GetMapping("/seller")
+    public ResponseEntity<List<SellerReviewResponse>> getReviewsBySeller(Authentication authentication) {
+        return ResponseEntity.ok(reviewService.getReviewsBySeller(authentication.getName()));
     }
 }

@@ -34,3 +34,11 @@ build/
 # Custom Secrets
 application-secret.properties
 src/main/resources/firebase-service-account.json
+
+# Test scratch files with hardcoded secrets
+TestFirebase.java
+NativeFirebaseTest.java
+NativeFirebaseTest.class
+
+# Logs
+logs/

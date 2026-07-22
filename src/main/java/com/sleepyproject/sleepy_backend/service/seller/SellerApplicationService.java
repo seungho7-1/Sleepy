@@ -31,6 +31,14 @@ public class SellerApplicationService {
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Member not found"));
 
+        // Check if there is already a pending application for this member
+        boolean hasPending = applicationRepository.findAll().stream()
+                .anyMatch(app -> app.getMember().getId().equals(member.getId()) 
+                              && app.getStatus() == ApplicationStatus.PENDING);
+        if (hasPending) {
+            throw new IllegalArgumentException("이미 대기 중인 판매자 심사 요청이 있습니다.");
+        }
+
         SellerApplication application = SellerApplication.builder()
                 .member(member)
                 .siteUrl(siteUrl)

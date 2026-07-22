@@ -89,17 +89,15 @@ public class NotificationService {
 
     @Transactional
     public void markAsRead(Long notificationId, String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Notification notification = notificationRepository.findById(notificationId).orElse(null);
         
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid notification ID"));
-        
-        if (!notification.getMember().getId().equals(member.getId())) {
-            throw new IllegalArgumentException("You don't have permission to modify this notification");
+        if (notification != null) {
+            if (!notification.getMember().getUsername().equals(username)) {
+                throw new IllegalArgumentException("No permission");
+            }
+            notification.markAsRead();
         }
         
-        notification.markAsRead();
         markAsReadInFirebase(notificationId, username);
     }
 
@@ -160,6 +158,10 @@ public class NotificationService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
             restTemplate.exchange(uri, HttpMethod.POST, entity, String.class);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            System.err.println("Firebase update failed: " + e.getStatusCode());
+            System.err.println("Response body: " + e.getResponseBodyAsString());
+            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }

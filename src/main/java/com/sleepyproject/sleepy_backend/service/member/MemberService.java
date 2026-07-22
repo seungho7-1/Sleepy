@@ -34,6 +34,14 @@ public class MemberService {
     private final com.sleepyproject.sleepy_backend.service.MailService mailService;
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     private final com.sleepyproject.sleepy_backend.repository.NotificationRepository notificationRepository;
+    private final com.sleepyproject.sleepy_backend.repository.review.ReviewRepository reviewRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private jakarta.persistence.EntityManager entityManager;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.sleepyproject.sleepy_backend.service.product.ProductService productService;
 
     /**
      * 회원가입 비즈니스 로직
@@ -156,7 +164,9 @@ public class MemberService {
                             p.getVideoType(),
                             p.getImageUrlList(),
                             p.getDescriptionImageUrlList(),
-                            p.getCategory()
+                            p.getCategory(),
+                            reviewRepository.countByProductId(p.getId()),
+                            p.getSeller().getProfileImageUrl()
                     );
                 })
                 .collect(Collectors.toList());
@@ -238,7 +248,60 @@ public class MemberService {
             }
         }
 
-        notificationRepository.deleteByMemberId(member.getId());
+        // 1. 등록한 상품 삭제 (연관된 태그, 위시리스트, 리뷰 함께 삭제됨)
+        List<com.sleepyproject.sleepy_backend.domain.product.Product> products = entityManager.createQuery("SELECT p FROM Product p WHERE p.seller = :member", com.sleepyproject.sleepy_backend.domain.product.Product.class)
+                .setParameter("member", member).getResultList();
+        for(com.sleepyproject.sleepy_backend.domain.product.Product p : products) {
+            // 상품에 달린 리뷰들의 댓글들 먼저 안전하게 삭제 (JPA Cascade 활용)
+            List<com.sleepyproject.sleepy_backend.domain.review.Review> reviews = entityManager.createQuery("SELECT r FROM Review r WHERE r.product = :product", com.sleepyproject.sleepy_backend.domain.review.Review.class)
+                    .setParameter("product", p).getResultList();
+            for(com.sleepyproject.sleepy_backend.domain.review.Review r : reviews) {
+                List<com.sleepyproject.sleepy_backend.domain.board.Comment> rComments = entityManager.createQuery("SELECT c FROM Comment c WHERE c.review = :review AND c.parent IS NULL", com.sleepyproject.sleepy_backend.domain.board.Comment.class)
+                        .setParameter("review", r).getResultList();
+                for(com.sleepyproject.sleepy_backend.domain.board.Comment c : rComments) {
+                    entityManager.remove(c);
+                }
+            }
+            entityManager.flush(); // 즉시 DB 반영하여 이후 productService 내의 벌크 쿼리 시 무결성 에러 방지
+            productService.delete(p.getId(), member.getUsername());
+        }
+
+        // 2. 작성한 게시글 관련 (댓글, 좋아요 등) 삭제
+        List<com.sleepyproject.sleepy_backend.domain.board.Post> posts = entityManager.createQuery("SELECT p FROM Post p WHERE p.member = :member", com.sleepyproject.sleepy_backend.domain.board.Post.class)
+                .setParameter("member", member)
+                .getResultList();
+        for(com.sleepyproject.sleepy_backend.domain.board.Post p : posts) {
+            // 게시글에 달린 최상위 댓글 조회 후 JPA remove()로 삭제 -> 대댓글까지 자동 cascade 삭제됨
+            List<com.sleepyproject.sleepy_backend.domain.board.Comment> topComments = entityManager.createQuery("SELECT c FROM Comment c WHERE c.post = :post AND c.parent IS NULL", com.sleepyproject.sleepy_backend.domain.board.Comment.class)
+                    .setParameter("post", p).getResultList();
+            for(com.sleepyproject.sleepy_backend.domain.board.Comment c : topComments) {
+                entityManager.remove(c);
+            }
+            entityManager.flush(); // 즉시 DB 반영하여 포스트 삭제 시 외래키 무결성 에러 방지
+            entityManager.createQuery("DELETE FROM PostLike pl WHERE pl.post = :post").setParameter("post", p).executeUpdate();
+            entityManager.createQuery("DELETE FROM Post p WHERE p = :post").setParameter("post", p).executeUpdate();
+        }
+
+        // 3. 본인이 작성한 댓글 전체 안전 삭제 (대댓글 자동 삭제, 이미 지워진 경우 무시)
+        List<com.sleepyproject.sleepy_backend.domain.board.Comment> comments = entityManager.createQuery("SELECT c FROM Comment c WHERE c.member = :member", com.sleepyproject.sleepy_backend.domain.board.Comment.class)
+                .setParameter("member", member).getResultList();
+        for(com.sleepyproject.sleepy_backend.domain.board.Comment c : comments) {
+            com.sleepyproject.sleepy_backend.domain.board.Comment managed = entityManager.find(com.sleepyproject.sleepy_backend.domain.board.Comment.class, c.getId());
+            if (managed != null) {
+                entityManager.remove(managed);
+            }
+        }
+        entityManager.flush(); // 즉시 DB 반영
+
+        // 4. 외래키 제약조건 방지를 위해 나머지 관련 엔티티 일괄 벌크 삭제
+        entityManager.createQuery("DELETE FROM Notification n WHERE n.member = :member").setParameter("member", member).executeUpdate();
+        entityManager.createQuery("DELETE FROM Wishlist w WHERE w.member = :member").setParameter("member", member).executeUpdate();
+        entityManager.createQuery("DELETE FROM PostLike pl WHERE pl.member = :member").setParameter("member", member).executeUpdate();
+        entityManager.createQuery("DELETE FROM Review r WHERE r.member = :member").setParameter("member", member).executeUpdate();
+        entityManager.createQuery("DELETE FROM SellerApplication sa WHERE sa.member = :member").setParameter("member", member).executeUpdate();
+        entityManager.createQuery("DELETE FROM Likes l WHERE l.member = :member").setParameter("member", member).executeUpdate();
+        entityManager.createQuery("DELETE FROM Report r WHERE r.reporter = :member").setParameter("member", member).executeUpdate();
+
         memberRepository.delete(member);
     }
 

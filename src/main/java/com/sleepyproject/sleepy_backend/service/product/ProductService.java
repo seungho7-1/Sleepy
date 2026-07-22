@@ -243,7 +243,9 @@ public class ProductService {
                     p.getVideoType(),
                     p.getImageUrlList(),
                     p.getDescriptionImageUrlList(),
-                    p.getCategory()
+                    p.getCategory(),
+                    reviewRepository.countByProductId(p.getId()),
+                    p.getSeller().getProfileImageUrl()
             );
         });
     }
@@ -284,7 +286,9 @@ public class ProductService {
                 product.getVideoType(),
                 product.getImageUrlList(),
                 product.getDescriptionImageUrlList(),
-                product.getCategory()
+                product.getCategory(),
+                reviewRepository.countByProductId(product.getId()),
+                product.getSeller().getProfileImageUrl()
         );
     }
 
@@ -337,7 +341,8 @@ public class ProductService {
                     p.getShopName(), p.getPurchaseUrl(), p.getSeller().getId(),
                     p.getCapacity(), p.getTexture(), p.getScent(), p.getColor(), p.getReleaseDate(), tags,
                     p.getVideoUrl(), p.getVideoType(), p.getImageUrlList(), p.getDescriptionImageUrlList(),
-                    p.getCategory()
+                    p.getCategory(), reviewRepository.countByProductId(p.getId()),
+                    p.getSeller().getProfileImageUrl()
             );
         }).collect(Collectors.toList());
     }

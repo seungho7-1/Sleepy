@@ -17,6 +17,8 @@ import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.product.ProductRepository;
 import com.sleepyproject.sleepy_backend.repository.report.ReportRepository;
 import com.sleepyproject.sleepy_backend.repository.seller.SellerApplicationRepository;
+import com.sleepyproject.sleepy_backend.repository.review.ReviewRepository;
+import com.sleepyproject.sleepy_backend.domain.review.Review;
 import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,7 @@ public class AdminService {
     private final ReportRepository reportRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final ReviewRepository reviewRepository;
     private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
@@ -109,6 +112,8 @@ public class AdminService {
                 commentRepository.findById(report.getTargetId()).ifPresent(Comment::hide);
             } else if (report.getTargetType() == ReportTargetType.PRODUCT) {
                 productRepository.findById(report.getTargetId()).ifPresent(Product::hide);
+            } else if (report.getTargetType() == ReportTargetType.REVIEW) {
+                reviewRepository.findById(report.getTargetId()).ifPresent(Review::hide);
             }
             
             // Suspend the author if action is SUSPEND_USER
@@ -147,6 +152,8 @@ public class AdminService {
             return commentRepository.findById(report.getTargetId()).map(Comment::getMember).orElse(null);
         } else if (report.getTargetType() == ReportTargetType.PRODUCT) {
             return productRepository.findById(report.getTargetId()).map(Product::getSeller).orElse(null);
+        } else if (report.getTargetType() == ReportTargetType.REVIEW) {
+            return reviewRepository.findById(report.getTargetId()).map(Review::getMember).orElse(null);
         }
         return null;
     }
@@ -186,6 +193,11 @@ public class AdminService {
                     map.put("id", s.getId());
                     map.put("shopName", s.getShopName());
                     map.put("siteUrl", s.getSiteUrl());
+                    map.put("snsUrls", s.getSnsUrls());
+                    map.put("introduction", s.getIntroduction());
+                    map.put("memberId", s.getMember().getId());
+                    map.put("memberNickname", s.getMember().getNickname());
+                    map.put("memberEmail", s.getMember().getEmail());
                     return map;
                 })
                 .collect(Collectors.toList());

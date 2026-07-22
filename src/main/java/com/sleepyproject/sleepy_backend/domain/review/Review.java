@@ -38,6 +38,12 @@ public class Review {
     private String imageUrl; // 리뷰 사진
     
     private int likeCount = 0; // 좋아요 수
+    
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isHidden = false; // 숨김(블라인드) 여부
+
+    @Column(nullable = false, columnDefinition = "int default 0")
+    private int reportCount = 0; // 신고 누적 횟수
 
     private LocalDateTime createdAt;
 
@@ -52,9 +58,6 @@ public class Review {
         this.createdAt = createdAt;
     }
     
-    /**
-     * 리뷰 좋아요 수를 1 증가시킵니다.
-     */
     public void incrementLikeCount() {
         this.likeCount++;
     }
@@ -66,5 +69,19 @@ public class Review {
         if (this.likeCount > 0) {
             this.likeCount--;
         }
+    }
+
+    /**
+     * 신고 횟수를 증가시킵니다.
+     */
+    public void incrementReportCount() {
+        this.reportCount++;
+    }
+
+    /**
+     * 리뷰를 숨김 처리합니다.
+     */
+    public void hide() {
+        this.isHidden = true;
     }
 }

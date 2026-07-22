@@ -8,8 +8,12 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -21,6 +25,7 @@ import java.util.UUID;
 public class UploadService {
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
 
     @Value("${aws.s3.bucket}")
     private String bucketName;
@@ -55,25 +60,7 @@ public class UploadService {
             }
         }
 
-        // 업로드 타입에 따라 S3 물리 폴더 경로(Key Prefix) 분기 처리
-        String folderPrefix;
-        switch (type) {
-            case "product-main":
-                folderPrefix = "products/main/";
-                break;
-            case "product-detail":
-                folderPrefix = "products/detail/";
-                break;
-            case "product-video":
-                folderPrefix = "products/video/";
-                break;
-            case "post":
-                folderPrefix = "community/posts/";
-                break;
-            default:
-                folderPrefix = "general/";
-                break;
-        }
+        String folderPrefix = resolveFolderPrefix(type);
 
         // 고유한 파일명 생성 (S3 Key = 폴더 경로 + UUID파일명)
         String savedFilename = folderPrefix + UUID.randomUUID().toString() + extension;
@@ -99,4 +86,79 @@ public class UploadService {
         // 업로드 완료된 S3 파일의 공개 URL 주소 생성 및 반환
         return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, savedFilename);
     }
+
+    /**
+     * 클라이언트가 S3에 직접 파일을 업로드할 수 있도록 Presigned PUT URL을 생성합니다.
+     * 이 방식을 사용하면 파일이 서버를 거치지 않고 S3로 직접 전송되어
+     * Nginx 업로드 제한을 우회하고 서버 부하를 줄일 수 있습니다.
+     *
+     * @param originalFilename 원본 파일명 (확장자 추출에 사용)
+     * @param contentType      파일의 MIME 타입 (예: video/mp4, image/jpeg)
+     * @param type             업로드 목적 유형 (예: post, product-main 등)
+     * @return Presigned URL과 업로드 완료 후 사용할 S3 파일 URL을 담은 Map
+     */
+    public java.util.Map<String, String> generatePresignedUrl(String originalFilename, String contentType, String type) {
+        // 확장자 추출
+        String extension = "";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+        }
+
+        // 보안: 허용된 확장자만 Presigned URL 발급
+        java.util.List<String> allowedExtensions = java.util.List.of(
+                ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif",
+                ".mp4", ".webm", ".mov", ".avi", ".mkv", ".m4v"
+        );
+        if (!allowedExtensions.contains(extension)) {
+            throw new IllegalArgumentException("허용되지 않는 파일 확장자입니다: " + extension);
+        }
+
+        String folderPrefix = resolveFolderPrefix(type);
+        String s3Key = folderPrefix + UUID.randomUUID().toString() + extension;
+
+        // Content-Type 결정
+        String resolvedContentType = (contentType != null && !contentType.isBlank())
+                ? contentType
+                : "application/octet-stream";
+
+        // Presigned PUT URL 생성 (유효시간: 15분)
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(s3Key)
+                .contentType(resolvedContentType)
+                .build();
+
+        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(15))
+                .putObjectRequest(putObjectRequest)
+                .build();
+
+        PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
+        String presignedUrl = presignedRequest.url().toString();
+        String fileUrl = String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, s3Key);
+
+        log.info("Presigned URL 발급 - S3 Key: {}, ContentType: {}, 만료: 15분", s3Key, resolvedContentType);
+
+        return java.util.Map.of(
+                "presignedUrl", presignedUrl,
+                "fileUrl", fileUrl
+        );
+    }
+
+    /**
+     * 업로드 타입 문자열에 따라 S3 폴더 경로(Key Prefix)를 결정합니다.
+     *
+     * @param type 업로드 목적 유형
+     * @return S3 폴더 경로 문자열
+     */
+    private String resolveFolderPrefix(String type) {
+        return switch (type) {
+            case "product-main"   -> "products/main/";
+            case "product-detail" -> "products/detail/";
+            case "product-video"  -> "products/video/";
+            case "post"           -> "community/posts/";
+            default               -> "general/";
+        };
+    }
 }
+
