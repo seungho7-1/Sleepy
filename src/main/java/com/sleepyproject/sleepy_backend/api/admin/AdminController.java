@@ -1,6 +1,7 @@
 package com.sleepyproject.sleepy_backend.api.admin;
 
 import com.sleepyproject.sleepy_backend.service.admin.AdminService;
+import com.sleepyproject.sleepy_backend.service.inquiry.InquiryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,7 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
+    private final InquiryService inquiryService;
 
     @GetMapping("/dashboard/stats")
     public ResponseEntity<?> getDashboardStats() {
@@ -88,5 +90,17 @@ public class AdminController {
     public ResponseEntity<?> unhideProduct(@PathVariable Long id) {
         adminService.unhideProduct(id);
         return ResponseEntity.ok(Map.of("message", "상품 숨김이 해제되었습니다."));
+    }
+
+    // Inquiry Management
+    @GetMapping("/inquiries")
+    public ResponseEntity<?> getInquiries() {
+        return ResponseEntity.ok(inquiryService.getAllInquiries());
+    }
+
+    @PostMapping("/inquiries/{id}/reply")
+    public ResponseEntity<?> replyToInquiry(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        inquiryService.replyToInquiry(id, request.get("reply"));
+        return ResponseEntity.ok(Map.of("message", "문의 답변이 등록되었습니다."));
     }
 }

@@ -21,8 +21,19 @@ public class SellerController {
         }
         
         String username = authentication.getName();
-        applicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction(), request.getShopName(), request.getSnsUrls());
+        applicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction(), request.getShopName(), request.getSnsUrls(), request.getBusinessNumber());
         return ResponseEntity.ok("Application submitted successfully");
+    }
+
+    @PostMapping("/verify-business-number")
+    public ResponseEntity<?> verifyBusinessNumber(@RequestBody java.util.Map<String, String> body) {
+        String businessNumber = body.get("businessNumber");
+        if (businessNumber == null || businessNumber.length() != 10) {
+            return ResponseEntity.badRequest().body("유효하지 않은 사업자등록번호 형식입니다.");
+        }
+        
+        boolean isValid = applicationService.verifyBusinessNumber(businessNumber);
+        return ResponseEntity.ok(java.util.Map.of("isValid", isValid));
     }
 
     @GetMapping("/latest")
@@ -52,5 +63,6 @@ public class SellerController {
         private String introduction;
         private String shopName;
         private String snsUrls;
+        private String businessNumber;
     }
 }

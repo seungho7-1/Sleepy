@@ -194,6 +194,7 @@ public class AdminService {
                     map.put("shopName", s.getShopName());
                     map.put("siteUrl", s.getSiteUrl());
                     map.put("snsUrls", s.getSnsUrls());
+                    map.put("businessNumber", s.getBusinessNumber());
                     map.put("introduction", s.getIntroduction());
                     map.put("memberId", s.getMember().getId());
                     map.put("memberNickname", s.getMember().getNickname());

@@ -171,7 +171,7 @@ public class MemberController {
         memberService.updateNickname(username, new NicknameUpdateRequest(request.getNickname()));
         
         if ("SELLER".equalsIgnoreCase(request.getRole())) {
-            sellerApplicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction(), request.getShopName(), request.getSnsUrls());
+            sellerApplicationService.submitApplication(username, request.getSiteUrl(), request.getIntroduction(), request.getShopName(), request.getSnsUrls(), request.getBusinessNumber());
         }
         
         com.sleepyproject.sleepy_backend.domain.member.Member member = memberRepository.findByUsername(username)
@@ -282,5 +282,6 @@ public class MemberController {
         private String introduction;
         private String shopName;
         private String snsUrls;
+        private String businessNumber;
     }
 }

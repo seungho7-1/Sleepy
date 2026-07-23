@@ -29,6 +29,9 @@ public class SellerApplication {
     @Column(nullable = false)
     private String shopName;
 
+    @Column(length = 20)
+    private String businessNumber;
+
     @Column(length = 1000)
     private String snsUrls;
 

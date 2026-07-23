@@ -10,5 +10,7 @@ public enum NotificationType {
     SELLER_REJECTED,    // 판매자 권한 반려 알림
     NEW_REVIEW,         // 내 상품에 리뷰가 등록됨 (판매자용)
     NEW_SELLER_APPLICATION, // 새 판매자 신청 접수 (관리자용)
-    NEW_REPORT          // 새 신고 접수 (관리자용)
+    NEW_REPORT,         // 새 신고 접수 (관리자용)
+    NEW_INQUIRY,        // 새로운 1:1 문의 등록 (관리자용)
+    INQUIRY_ANSWERED    // 내 1:1 문의에 답변이 달림 (사용자용)
 }
