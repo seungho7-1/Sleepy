@@ -7,13 +7,13 @@ import java.util.List;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     @EntityGraph(attributePaths = {"member"})
-    List<Comment> findByPostIdOrderByCreatedAtAsc(Long postId);
+    List<Comment> findByPostIdAndIsHiddenFalseOrderByCreatedAtAsc(Long postId);
     
     @EntityGraph(attributePaths = {"member"})
-    List<Comment> findByReviewIdOrderByCreatedAtAsc(Long reviewId);
+    List<Comment> findByReviewIdAndIsHiddenFalseOrderByCreatedAtAsc(Long reviewId);
     
     @EntityGraph(attributePaths = {"member", "post", "review"})
-    List<Comment> findByMemberUsernameOrderByCreatedAtDesc(String username);
+    List<Comment> findByMemberUsernameAndIsHiddenFalseOrderByCreatedAtDesc(String username);
     long countByCreatedAtAfter(java.time.LocalDateTime date);
     
     void deleteAllByPost(com.sleepyproject.sleepy_backend.domain.board.Post post);

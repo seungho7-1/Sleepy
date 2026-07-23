@@ -13,11 +13,11 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
-    Page<Post> findByBoardType(BoardType boardType, Pageable pageable);
+    Page<Post> findByBoardTypeAndIsHiddenFalse(BoardType boardType, Pageable pageable);
 
     @EntityGraph(attributePaths = {"member"})
     @Query("SELECT DISTINCT p FROM Post p LEFT JOIN Comment c ON c.post = p " +
-            "WHERE p.boardType = :boardType AND " +
+            "WHERE p.boardType = :boardType AND p.isHidden = false AND " +
             "(:keyword IS NULL OR :keyword = '' OR " +
             "LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(p.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -25,13 +25,22 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByBoardTypeAndKeyword(@Param("boardType") BoardType boardType, @Param("keyword") String keyword, Pageable pageable);
 
     @EntityGraph(attributePaths = {"member"})
-    List<Post> findByMemberUsernameOrderByCreatedAtDesc(String username);
+    @Query("SELECT DISTINCT p FROM Post p LEFT JOIN Comment c ON c.post = p " +
+            "WHERE p.boardType IN :boardTypes AND p.isHidden = false AND " +
+            "(:keyword IS NULL OR :keyword = '' OR " +
+            "LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(p.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(c.content) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Post> findByBoardTypeInAndKeyword(@Param("boardTypes") List<BoardType> boardTypes, @Param("keyword") String keyword, Pageable pageable);
 
     @EntityGraph(attributePaths = {"member"})
-    List<Post> findByMemberUsernameAndBoardTypeOrderByCreatedAtDesc(String username, BoardType boardType);
+    List<Post> findByMemberUsernameAndIsHiddenFalseOrderByCreatedAtDesc(String username);
 
     @EntityGraph(attributePaths = {"member"})
-    List<Post> findByMemberUsernameAndBoardTypeNotOrderByCreatedAtDesc(String username, BoardType boardType);
+    List<Post> findByMemberUsernameAndBoardTypeAndIsHiddenFalseOrderByCreatedAtDesc(String username, BoardType boardType);
+
+    @EntityGraph(attributePaths = {"member"})
+    List<Post> findByMemberUsernameAndBoardTypeNotAndIsHiddenFalseOrderByCreatedAtDesc(String username, BoardType boardType);
 
     long countByCreatedAtAfter(java.time.LocalDateTime date);
 

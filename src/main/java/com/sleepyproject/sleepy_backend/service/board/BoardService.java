@@ -43,6 +43,7 @@ public class BoardService {
     private final NotificationService notificationService;
     private final PostRedisService postRedisService;
     private final PostLikeAsyncService postLikeAsyncService;
+    private final com.sleepyproject.sleepy_backend.util.BadWordFilter badWordFilter;
 
     /**
      * 커뮤니티 게시글 생성 로직
@@ -58,8 +59,8 @@ public class BoardService {
 
         Post post = Post.builder()
                 .member(member)
-                .title(request.getTitle())
-                .content(request.getContent())
+                .title(badWordFilter.filter(request.getTitle()))
+                .content(badWordFilter.filter(request.getContent()))
                 .boardType(BoardType.valueOf(request.getBoardType().toUpperCase()))
                 .imageUrl(request.getImageUrl())
                 .createdAt(LocalDateTime.now())
@@ -77,8 +78,15 @@ public class BoardService {
      */
     @Transactional(readOnly = true)
     public Page<PostResponse> getPosts(String boardTypeStr, String keyword, Pageable pageable, String username) {
-        BoardType type = BoardType.valueOf(boardTypeStr.toUpperCase());
-        Page<Post> posts = postRepository.findByBoardTypeAndKeyword(type, keyword, pageable);
+        Page<Post> posts;
+        if ("ALL".equalsIgnoreCase(boardTypeStr)) {
+            posts = postRepository.findByBoardTypeInAndKeyword(
+                    java.util.Arrays.asList(BoardType.FREE, BoardType.QNA, BoardType.REVIEW, BoardType.INFO),
+                    keyword, pageable);
+        } else {
+            BoardType type = BoardType.valueOf(boardTypeStr.toUpperCase());
+            posts = postRepository.findByBoardTypeAndKeyword(type, keyword, pageable);
+        }
         
         Member member = null;
         java.util.List<Long> likedPostIds = new java.util.ArrayList<>();
@@ -176,7 +184,7 @@ public class BoardService {
         if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("수정 권한이 없습니다.");
         }
-        post.update(request.getTitle(), request.getContent(), request.getImageUrl(), null);
+        post.update(badWordFilter.filter(request.getTitle()), badWordFilter.filter(request.getContent()), request.getImageUrl(), null);
     }
 
     @Transactional
@@ -210,7 +218,7 @@ public class BoardService {
 
         Comment.CommentBuilder builder = Comment.builder()
                 .member(member)
-                .content(request.getContent())
+                .content(badWordFilter.filter(request.getContent()))
                 .createdAt(LocalDateTime.now());
 
         if (request.getParentId() != null) {
@@ -284,9 +292,9 @@ public class BoardService {
     public List<CommentResponse> getComments(Long targetId, String targetType) {
         List<Comment> comments;
         if ("POST".equalsIgnoreCase(targetType)) {
-            comments = commentRepository.findByPostIdOrderByCreatedAtAsc(targetId);
+            comments = commentRepository.findByPostIdAndIsHiddenFalseOrderByCreatedAtAsc(targetId);
         } else if ("REVIEW".equalsIgnoreCase(targetType)) {
-            comments = commentRepository.findByReviewIdOrderByCreatedAtAsc(targetId);
+            comments = commentRepository.findByReviewIdAndIsHiddenFalseOrderByCreatedAtAsc(targetId);
         } else {
             throw new IllegalArgumentException("유효하지 않은 타겟 타입입니다.");
         }
@@ -308,10 +316,10 @@ public class BoardService {
     public List<PostResponse> getMyPosts(String username, String type) {
         List<Post> posts;
         if ("MEDIA".equalsIgnoreCase(type)) {
-            posts = postRepository.findByMemberUsernameAndBoardTypeOrderByCreatedAtDesc(username, BoardType.MEDIA);
+            posts = postRepository.findByMemberUsernameAndBoardTypeAndIsHiddenFalseOrderByCreatedAtDesc(username, BoardType.MEDIA);
         } else {
             // MEDIA를 제외한 일반 텍스트 게시글들 조회
-            posts = postRepository.findByMemberUsernameAndBoardTypeNotOrderByCreatedAtDesc(username, BoardType.MEDIA);
+            posts = postRepository.findByMemberUsernameAndBoardTypeNotAndIsHiddenFalseOrderByCreatedAtDesc(username, BoardType.MEDIA);
         }
         return posts.stream().map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
@@ -327,7 +335,7 @@ public class BoardService {
      */
     @Transactional(readOnly = true)
     public List<MyCommentResponse> getMyComments(String username) {
-        List<Comment> comments = commentRepository.findByMemberUsernameOrderByCreatedAtDesc(username);
+        List<Comment> comments = commentRepository.findByMemberUsernameAndIsHiddenFalseOrderByCreatedAtDesc(username);
         return comments.stream().map(c -> {
             Long targetId = null;
             String targetType = null;
@@ -375,7 +383,7 @@ public class BoardService {
         if (!comment.getMember().getUsername().equalsIgnoreCase(username)) {
             throw new IllegalArgumentException("댓글 수정 권한이 없습니다.");
         }
-        comment.updateContent(request.getContent());
+        comment.updateContent(badWordFilter.filter(request.getContent()));
     }
 
     /**

@@ -40,6 +40,7 @@ public class ReviewService {
     private final ProductRepository productRepository;
     private final MemberRepository memberRepository;
     private final NotificationService notificationService;
+    private final com.sleepyproject.sleepy_backend.util.BadWordFilter badWordFilter;
 
     /**
      * 리뷰 등록 로직
@@ -60,7 +61,7 @@ public class ReviewService {
         // 금칙어 필터링
         String content = request.getContent();
         if (content != null) {
-            content = content.replaceAll("시발|병신|개새끼|존나|미친|지랄", "***");
+            content = badWordFilter.filter(content);
         }
 
         Review review = Review.builder()
