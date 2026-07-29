@@ -6,6 +6,7 @@ import com.sleepyproject.sleepy_backend.domain.member.Member;
 import com.sleepyproject.sleepy_backend.repository.inquiry.InquiryRepository;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 import com.sleepyproject.sleepy_backend.domain.notification.NotificationType;
 import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InquiryService {
@@ -27,6 +29,7 @@ public class InquiryService {
     public InquiryDto.Response createInquiry(String username, InquiryDto.Request request) {
         Member member = memberRepository.findByEmail(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
 
         Inquiry inquiry = Inquiry.builder()
                 .member(member)

@@ -20,4 +20,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     void deleteByProductId(Long productId);
     
     long countByProductId(Long productId);
+
+    java.util.List<Review> findAllByProductIdAndIsHiddenFalse(Long productId);
 }

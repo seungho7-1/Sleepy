@@ -37,7 +37,7 @@ public class ProductResponse {
     private Long sellerId;
 
     // 슬라임 부가 정보
-    private Integer capacity; // 용량(ml)
+
     private String texture; // 질감
     private String scent; // 향
     private String color; // 색상
@@ -54,5 +54,6 @@ public class ProductResponse {
     private String category; // 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY)
     
     private long reviewCount; // 리뷰 수
+    private double avgRating; // 평균 별점
     private String sellerProfileImageUrl; // 판매자 프로필 이미지
 }

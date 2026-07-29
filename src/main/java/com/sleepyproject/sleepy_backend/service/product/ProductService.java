@@ -82,7 +82,6 @@ public class ProductService {
                 .imageUrl(imagesString) // 이미지 저장 주소 추가
                 .shopName(seller.getShopName())   // 슬라임 마켓 스토어명 추가 (판매자 정보에서 가져옴)
                 .purchaseUrl(request.getPurchaseUrl()) // 외부 구매 주소 링크 추가
-                .capacity(request.getCapacity())
                 .texture(request.getTexture())
                 .scent(request.getScent())
                 .color(request.getColor())
@@ -155,7 +154,6 @@ public class ProductService {
                 imagesString,  // 이미지 경로 추가
                 seller.getShopName(),  // 마켓 스토어명 추가 (판매자 정보에서 가져옴)
                 request.getPurchaseUrl(), // 외부 구매 링크 추가
-                request.getCapacity(),
                 request.getTexture(),
                 request.getScent(),
                 request.getColor(),
@@ -213,11 +211,11 @@ public class ProductService {
      * @return DTO인 ProductResponse로 변환된 Page 객체 반환
      */
     @Transactional
-    public Page<ProductResponse> getProducts(String category, String keyword, Pageable pageable) {
+    public Page<ProductResponse> getProducts(String category, String keyword, Long sellerId, Pageable pageable) {
         Page<Product> products;
 
-        log.info("카테고리: {}, 키워드로 검색 진행: {}", category, keyword);
-        products = productRepository.findByCategoryAndKeyword(category, keyword, pageable);
+        log.info("카테고리: {}, 키워드: {}, 판매자: {} 로 검색 진행", category, keyword, sellerId);
+        products = productRepository.findByCategoryAndKeywordAndSellerId(category, keyword, sellerId, pageable);
 
         // DB에서 가져온 엔티티 Page 객체를 응답용 DTO(ProductResponse) Page 객체로 매핑/변환
         return products.map(p -> {
@@ -233,7 +231,6 @@ public class ProductService {
                     p.getShopName(),          // 스토어명 추가
                     p.getPurchaseUrl(),       // 결제 주소 링크 추가
                     p.getSeller().getId(),    // 등록한 판매자 ID (프론트 소유권 판별용)
-                    p.getCapacity(),
                     p.getTexture(),
                     p.getScent(),
                     p.getColor(),
@@ -244,7 +241,8 @@ public class ProductService {
                     p.getImageUrlList(),
                     p.getDescriptionImageUrlList(),
                     p.getCategory(),
-                    reviewRepository.countByProductId(p.getId()),
+                    p.getReviewCount(),
+                    p.getAvgRating(),
                     p.getSeller().getProfileImageUrl()
             );
         });
@@ -276,7 +274,6 @@ public class ProductService {
                 product.getShopName(),          // 마켓 스토어명 추가
                 product.getPurchaseUrl(),        // 외부 결제 링크 추가
                 product.getSeller().getId(),      // 등록한 판매자 ID (프론트 소유권 판별용)
-                product.getCapacity(),
                 product.getTexture(),
                 product.getScent(),
                 product.getColor(),
@@ -287,7 +284,8 @@ public class ProductService {
                 product.getImageUrlList(),
                 product.getDescriptionImageUrlList(),
                 product.getCategory(),
-                reviewRepository.countByProductId(product.getId()),
+                product.getReviewCount(),
+                product.getAvgRating(),
                 product.getSeller().getProfileImageUrl()
         );
     }
@@ -339,12 +337,12 @@ public class ProductService {
             return new ProductResponse(
                     p.getId(), p.getName(), p.getPrice(), p.getDescription(), p.getFirstImageUrl(),
                     p.getShopName(), p.getPurchaseUrl(), p.getSeller().getId(),
-                    p.getCapacity(), p.getTexture(), p.getScent(), p.getColor(), p.getReleaseDate(), tags,
+                    p.getTexture(), p.getScent(), p.getColor(), p.getReleaseDate(), tags,
                     p.getVideoUrl(), p.getVideoType(), p.getImageUrlList(), p.getDescriptionImageUrlList(),
-                    p.getCategory(), reviewRepository.countByProductId(p.getId()),
+                    p.getCategory(), p.getReviewCount(), p.getAvgRating(),
                     p.getSeller().getProfileImageUrl()
             );
-        }).collect(Collectors.toList());
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     /**

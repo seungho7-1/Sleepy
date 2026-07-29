@@ -56,11 +56,18 @@ public class ProductController {
     public ResponseEntity<?> list(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long sellerId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt,desc") String sort
     ) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        return ResponseEntity.ok(productService.getProducts(category, keyword, pageable));
+        // sort 파라미터 파싱 (예: "reviewCount,desc")
+        String[] sortParts = sort.split(",");
+        String sortField = sortParts[0].trim();
+        Sort.Direction direction = sortParts.length > 1 && "asc".equalsIgnoreCase(sortParts[1].trim())
+                ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
+        return ResponseEntity.ok(productService.getProducts(category, keyword, sellerId, pageable));
     }
 
     /**

@@ -1,23 +1,23 @@
 package com.sleepyproject.sleepy_backend.service.board;
 
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-
 import com.sleepyproject.sleepy_backend.api.board.dto.CommentRequest;
 import com.sleepyproject.sleepy_backend.api.board.dto.CommentResponse;
+import com.sleepyproject.sleepy_backend.api.board.dto.MyCommentResponse;
 import com.sleepyproject.sleepy_backend.api.board.dto.PostRequest;
 import com.sleepyproject.sleepy_backend.api.board.dto.PostResponse;
-import com.sleepyproject.sleepy_backend.api.board.dto.MyCommentResponse;
 import com.sleepyproject.sleepy_backend.domain.board.BoardType;
 import com.sleepyproject.sleepy_backend.domain.board.Comment;
 import com.sleepyproject.sleepy_backend.domain.board.Post;
+import com.sleepyproject.sleepy_backend.domain.board.PostLike;
 import com.sleepyproject.sleepy_backend.domain.member.Member;
 import com.sleepyproject.sleepy_backend.domain.review.Review;
 import com.sleepyproject.sleepy_backend.repository.board.CommentRepository;
+import com.sleepyproject.sleepy_backend.repository.board.PostLikeRepository;
 import com.sleepyproject.sleepy_backend.repository.board.PostRepository;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.review.ReviewRepository;
 import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
+import com.sleepyproject.sleepy_backend.util.BadWordFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,12 +25,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * 커뮤니티 게시판 및 댓글 처리를 담당하는 서비스 클래스입니다.
- */
+import static java.util.Arrays.asList;
+
 @Service
 @RequiredArgsConstructor
 public class BoardService {
@@ -39,19 +41,11 @@ public class BoardService {
     private final CommentRepository commentRepository;
     private final MemberRepository memberRepository;
     private final ReviewRepository reviewRepository;
-    private final com.sleepyproject.sleepy_backend.repository.board.PostLikeRepository postLikeRepository;
+    private final PostLikeRepository postLikeRepository;
     private final NotificationService notificationService;
     private final PostRedisService postRedisService;
-    private final PostLikeAsyncService postLikeAsyncService;
-    private final com.sleepyproject.sleepy_backend.util.BadWordFilter badWordFilter;
+    private final BadWordFilter badWordFilter;
 
-    /**
-     * 커뮤니티 게시글 생성 로직
-     *
-     * @param request 게시글 생성 요청 DTO (제목, 내용, 게시판 타입)
-     * @param email   요청한 유저의 이메일
-     * @return 생성된 게시글의 ID
-     */
     @Transactional
     public Long createPost(PostRequest request, String username) {
         Member member = memberRepository.findByUsername(username)
@@ -63,80 +57,93 @@ public class BoardService {
                 .content(badWordFilter.filter(request.getContent()))
                 .boardType(BoardType.valueOf(request.getBoardType().toUpperCase()))
                 .imageUrl(request.getImageUrl())
+                .hashtags(request.getHashtags())
                 .createdAt(LocalDateTime.now())
                 .build();
 
         return postRepository.save(post).getId();
     }
 
-    /**
-     * 게시판 카테고리별 게시글 목록 페이징 조회
-     *
-     * @param boardTypeStr 게시판 타입 문자열 (FREE, QNA, NOTICE)
-     * @param pageable     페이징 정보
-     * @return 페이징 처리된 게시글 목록 (PostResponse 형태)
-     */
     @Transactional(readOnly = true)
     public Page<PostResponse> getPosts(String boardTypeStr, String keyword, Pageable pageable, String username) {
         Page<Post> posts;
         if ("ALL".equalsIgnoreCase(boardTypeStr)) {
             posts = postRepository.findByBoardTypeInAndKeyword(
-                    java.util.Arrays.asList(BoardType.FREE, BoardType.QNA, BoardType.REVIEW, BoardType.INFO),
+                    asList(BoardType.FREE, BoardType.QNA, BoardType.REVIEW, BoardType.INFO),
                     keyword, pageable);
         } else {
-            BoardType type = BoardType.valueOf(boardTypeStr.toUpperCase());
+            BoardType type;
+            try {
+                type = BoardType.valueOf(boardTypeStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 게시판 타입입니다. FREE, QNA, NOTICE, MEDIA 중 하나여야 합니다.");
+            }
             posts = postRepository.findByBoardTypeAndKeyword(type, keyword, pageable);
         }
-        
-        Member member = null;
-        java.util.List<Long> likedPostIds = new java.util.ArrayList<>();
+
+        List<Long> likedPostIds = new ArrayList<>();
         if (username != null) {
-            member = memberRepository.findByUsername(username).orElse(null);
+            Member member = memberRepository.findByUsername(username).orElse(null);
             if (member != null) {
-                java.util.List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
+                List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
                 if (!postIds.isEmpty()) {
                     likedPostIds = postLikeRepository.findByMemberAndPostIdIn(member, postIds)
                             .stream().map(pl -> pl.getPost().getId()).collect(Collectors.toList());
                 }
             }
         }
-        
-        final java.util.List<Long> finalLikedPostIds = likedPostIds;
-        return posts.map(p -> {
-            // DB의 좋아요 수에 Redis의 임시 변경분(있다면)을 더해서 반환해야 정확한 롤백/수정입니다.
-            // 하지만 기존 로직에 따르면 Redis Set size가 전체 좋아요 수라고 착각하고 있었으므로,
-            // DB의 likeCount를 그대로 쓰되, 프론트엔드 동기화를 위해 isLiked를 정확히 전달하는 데 집중합니다.
-            return new PostResponse(
-                    p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
-                    p.getMember().getNickname(), p.getViewCount() + postRedisService.getCachedViewCount(p.getId()), 
-                    p.getLikeCount(), // DB likeCount 유지
-                    p.getCreatedAt(), p.getMember().getProfileImageUrl(), finalLikedPostIds.contains(p.getId())
-            );
-        });
+
+        final List<Long> finalLikedPostIds = likedPostIds;
+        List<Long> postIds = posts.stream()
+                .map(Post::getId)
+                .toList();
+
+        Map<Long, Integer> commentCountMap =
+                commentRepository.countCommentsByPostIds(postIds)
+                        .stream()
+                        .collect(Collectors.toMap(
+                                row -> (Long) row[0],
+                                row -> ((Long) row[1]).intValue()
+                        ));
+        return posts.map(p -> new PostResponse(
+                p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
+                p.getMember().getNickname(), p.getViewCount() + postRedisService.getCachedViewCount(p.getId()),
+                p.getLikeCount(),
+                p.getCreatedAt(), p.getMember().getProfileImageUrl(), finalLikedPostIds.contains(p.getId()),
+                commentCountMap.getOrDefault(p.getId(), 0),
+                p.getPopularityScore(),
+                p.getHashtags()
+        ));
     }
 
-    /**
-     * 특정 게시글 상세 조회 및 조회수 증가 로직
-     *
-     * @param postId 조회할 게시글 ID
-     * @return 게시글 상세 정보 (PostResponse)
-     */
     @Transactional
     public PostResponse getPostDetail(Long postId, String username) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        
+
         boolean isLiked = false;
+        boolean isAdmin = false;
         if (username != null) {
             Member member = memberRepository.findByUsername(username).orElse(null);
             if (member != null) {
                 isLiked = postLikeRepository.existsByMemberAndPost(member, post);
+                isAdmin = member.getRole() == com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN;
             }
         }
-        
+
+        if (post.isHidden()) {
+            boolean isAuthor = username != null && post.getMember().getUsername().equals(username);
+            if (!isAdmin && !isAuthor) {
+                throw new IllegalArgumentException("관리자에 의해 숨김 처리되었거나 접근할 수 없는 게시글입니다.");
+            }
+        }
+
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
-                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked
+                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
+                commentRepository.countByPostIdAndIsHiddenFalse(post.getId()),
+                post.getPopularityScore(),
+                post.getHashtags()
         );
     }
 
@@ -144,9 +151,9 @@ public class BoardService {
     public PostResponse incrementViewCount(Long postId, String identifier, String username) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        
+
         postRedisService.incrementViewCount(postId, identifier);
-        
+
         boolean isLiked = false;
         if (username != null) {
             Member member = memberRepository.findByUsername(username).orElse(null);
@@ -154,15 +161,16 @@ public class BoardService {
                 isLiked = postLikeRepository.existsByMemberAndPost(member, post);
             }
         }
-        
+
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
-                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked
+                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
+                commentRepository.countByPostIdAndIsHiddenFalse(post.getId()),
+                post.getPopularityScore(),
+                post.getHashtags()
         );
     }
 
-    // 수정 전: DB의 PostLike 테이블을 직접 지웠다 썼다 하던 동기 처리 로직
-    // 수정 후: Redis에서 초고속 처리 후, DB 저장은 @Async 백그라운드로 넘겨버림!
     @Transactional
     public boolean toggleLike(Long postId, String username) {
         Post post = postRepository.findById(postId)
@@ -170,9 +178,17 @@ public class BoardService {
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        boolean isLiked = postRedisService.toggleLike(postId, username);
-        postLikeAsyncService.syncLikeToDatabase(member, post, isLiked);
-        return isLiked;
+        Optional<PostLike> existingLike = postLikeRepository.findByMemberAndPost(member, post);
+
+        if (existingLike.isPresent()) {
+            postLikeRepository.delete(existingLike.get());
+            post.decrementLikeCount();
+            return false;
+        } else {
+            postLikeRepository.save(new PostLike(member, post));
+            post.incrementLikeCount();
+            return true;
+        }
     }
 
     @Transactional
@@ -184,7 +200,12 @@ public class BoardService {
         if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("수정 권한이 없습니다.");
         }
-        post.update(badWordFilter.filter(request.getTitle()), badWordFilter.filter(request.getContent()), request.getImageUrl(), null);
+        post.update(
+                badWordFilter.filter(request.getTitle()),
+                badWordFilter.filter(request.getContent()),
+                request.getImageUrl(),
+                request.getHashtags()
+        );
     }
 
     @Transactional
@@ -196,21 +217,13 @@ public class BoardService {
         if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("삭제 권한이 없습니다.");
         }
-        
-        // 외래키 참조 무결성을 위해 게시글에 딸린 댓글과 좋아요 데이터 먼저 삭제
+
         commentRepository.deleteAllByPost(post);
         postLikeRepository.deleteAllByPost(post);
-        
+
         postRepository.delete(post);
     }
 
-    /**
-     * 댓글 생성 로직 (게시글 또는 리뷰 대상)
-     *
-     * @param request 댓글 생성 요청 DTO (타겟 타입, 타겟 ID, 내용)
-     * @param email   요청한 유저 이메일
-     * @return 생성된 댓글의 ID
-     */
     @Transactional
     public Long createComment(CommentRequest request, String username) {
         Member member = memberRepository.findByUsername(username)
@@ -241,10 +254,15 @@ public class BoardService {
 
         Comment savedComment = commentRepository.save(builder.build());
 
+        // 게시글 댓글 수 동기화
+        if (savedComment.getPost() != null) {
+            savedComment.getPost().incrementCommentCount();
+        }
+
         if (savedComment.getParent() != null) {
             Member targetMember = savedComment.getParent().getMember();
             if (!targetMember.getId().equals(member.getId())) {
-                String url = savedComment.getPost() != null 
+                String url = savedComment.getPost() != null
                         ? "/community/" + savedComment.getPost().getId() + "#comment-" + savedComment.getId()
                         : "/product/" + savedComment.getReview().getProduct().getId() + "#comment-" + savedComment.getId();
                 notificationService.createNotificationByMember(
@@ -281,13 +299,6 @@ public class BoardService {
         return savedComment.getId();
     }
 
-    /**
-     * 특정 대상(게시글/리뷰)의 댓글 목록 조회
-     *
-     * @param targetId   조회 대상 ID
-     * @param targetType 대상 타입 (POST 또는 REVIEW)
-     * @return 작성일 오름차순으로 정렬된 댓글 목록
-     */
     @Transactional(readOnly = true)
     public List<CommentResponse> getComments(Long targetId, String targetType) {
         List<Comment> comments;
@@ -305,38 +316,27 @@ public class BoardService {
         )).collect(Collectors.toList());
     }
 
-    /**
-     * 회원이 작성한 게시글 목록을 조회합니다.
-     *
-     * @param email 유저 이메일
-     * @param type  조회할 게시글 타입 필터 (예: MEDIA 등)
-     * @return 내가 쓴 게시글 목록 (PostResponse 리스트)
-     */
     @Transactional(readOnly = true)
-    public List<PostResponse> getMyPosts(String username, String type) {
-        List<Post> posts;
+    public org.springframework.data.domain.Page<PostResponse> getMyPosts(String username, String type, org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.domain.Page<Post> posts;
         if ("MEDIA".equalsIgnoreCase(type)) {
-            posts = postRepository.findByMemberUsernameAndBoardTypeAndIsHiddenFalseOrderByCreatedAtDesc(username, BoardType.MEDIA);
+            posts = postRepository.findByMemberUsernameAndBoardTypeAndIsHiddenFalseOrderByCreatedAtDesc(username, BoardType.MEDIA, pageable);
         } else {
-            // MEDIA를 제외한 일반 텍스트 게시글들 조회
-            posts = postRepository.findByMemberUsernameAndBoardTypeNotAndIsHiddenFalseOrderByCreatedAtDesc(username, BoardType.MEDIA);
+            posts = postRepository.findByMemberUsernameAndBoardTypeNotAndIsHiddenFalseOrderByCreatedAtDesc(username, BoardType.MEDIA, pageable);
         }
-        return posts.stream().map(p -> new PostResponse(
+        return posts.map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
-                p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt(), p.getMember().getProfileImageUrl(), false
-        )).collect(Collectors.toList());
+                p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt(), p.getMember().getProfileImageUrl(), false,
+                commentRepository.countByPostIdAndIsHiddenFalse(p.getId()),
+                p.getPopularityScore(),
+                p.getHashtags()
+        ));
     }
 
-    /**
-     * 회원이 작성한 댓글 목록을 조회합니다. (원글 제목 등 상세 정보 매핑 포함)
-     *
-     * @param email 유저 이메일
-     * @return 내가 쓴 댓글 목록 (MyCommentResponse 리스트)
-     */
     @Transactional(readOnly = true)
-    public List<MyCommentResponse> getMyComments(String username) {
-        List<Comment> comments = commentRepository.findByMemberUsernameAndIsHiddenFalseOrderByCreatedAtDesc(username);
-        return comments.stream().map(c -> {
+    public org.springframework.data.domain.Page<MyCommentResponse> getMyComments(String username, org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.domain.Page<Comment> comments = commentRepository.findByMemberUsernameAndIsHiddenFalseOrderByCreatedAtDesc(username, pageable);
+        return comments.map(c -> {
             Long targetId = null;
             String targetType = null;
             String targetTitle = "삭제된 원본 대상";
@@ -364,18 +364,9 @@ public class BoardService {
                     targetType,
                     targetTitle
             );
-        }).collect(Collectors.toList());
+        });
     }
 
-    /**
-     * 특정 댓글의 내용을 수정합니다.
-     * - 자신이 작성한 댓글만 수정 가능합니다.
-     *
-     * @param commentId 수정할 댓글 ID
-     * @param request   수정할 새 댓글 데이터 DTO
-     * @param email     수정을 요청한 유저 이메일
-     * @throws IllegalArgumentException 대상 댓글이 존재하지 않거나 권한이 없는 경우
-     */
     @Transactional
     public void updateComment(Long commentId, CommentRequest request, String username) {
         Comment comment = commentRepository.findById(commentId)
@@ -386,20 +377,16 @@ public class BoardService {
         comment.updateContent(badWordFilter.filter(request.getContent()));
     }
 
-    /**
-     * 특정 댓글을 삭제합니다.
-     * - 자신이 작성한 댓글만 삭제 가능합니다.
-     *
-     * @param commentId 삭제할 댓글 ID
-     * @param email     삭제를 요청한 유저 이메일
-     * @throws IllegalArgumentException 대상 댓글이 존재하지 않거나 권한이 없는 경우
-     */
     @Transactional
     public void deleteComment(Long commentId, String username) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
         if (!comment.getMember().getUsername().equalsIgnoreCase(username)) {
             throw new IllegalArgumentException("댓글 삭제 권한이 없습니다.");
+        }
+        // 게시글 댓글 수 동기화
+        if (comment.getPost() != null) {
+            comment.getPost().decrementCommentCount();
         }
         commentRepository.delete(comment);
     }

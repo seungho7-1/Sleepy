@@ -20,13 +20,13 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping
-    public ResponseEntity<List<NotificationDto>> getNotifications(Authentication authentication) {
+    public ResponseEntity<org.springframework.data.domain.Page<NotificationDto>> getNotifications(
+            @org.springframework.data.web.PageableDefault(size = 10) org.springframework.data.domain.Pageable pageable,
+            Authentication authentication) {
         String username = (String) authentication.getPrincipal();
-        List<Notification> notifications = notificationService.getNotificationsForMember(username);
+        org.springframework.data.domain.Page<Notification> notifications = notificationService.getNotificationsForMember(username, pageable);
         
-        List<NotificationDto> dtos = notifications.stream()
-                .map(NotificationDto::fromEntity)
-                .collect(Collectors.toList());
+        org.springframework.data.domain.Page<NotificationDto> dtos = notifications.map(NotificationDto::fromEntity);
                 
         return ResponseEntity.ok(dtos);
     }

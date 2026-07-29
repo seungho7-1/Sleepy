@@ -66,32 +66,67 @@ public class SellerApplicationService {
         );
     }
 
-    public boolean verifyBusinessNumber(String businessNumber) {
-        String url = "https://api.odcloud.kr/api/nts-businessman/v1/status?serviceKey=" + dataGoKrApiKey;
-
+    public String verifyBusinessNumber(String businessNumber, String repName, String startDate) {
+        String cleanBusinessNumber = businessNumber.replaceAll("-", "");
+        
+        // 1. 진위확인 API 호출
+        String validateUrl = "https://api.odcloud.kr/api/nts-businessman/v1/validate?serviceKey=" + dataGoKrApiKey;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-        // Create request payload
-        Map<String, List<String>> body = Map.of("b_no", List.of(businessNumber));
-        HttpEntity<Map<String, List<String>>> request = new HttpEntity<>(body, headers);
+        Map<String, Object> business = Map.of(
+            "b_no", cleanBusinessNumber,
+            "start_dt", startDate,
+            "p_nm", repName
+        );
+        Map<String, List<Map<String, Object>>> validateBody = Map.of("businesses", List.of(business));
+        HttpEntity<Map<String, List<Map<String, Object>>>> validateRequest = new HttpEntity<>(validateBody, headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                List<Map<String, Object>> dataList = (List<Map<String, Object>>) response.getBody().get("data");
+            java.net.URI validateUri = new java.net.URI(validateUrl);
+            ResponseEntity<Map> validateResponse = restTemplate.postForEntity(validateUri, validateRequest, Map.class);
+            
+            if (validateResponse.getStatusCode() == HttpStatus.OK && validateResponse.getBody() != null) {
+                List<Map<String, Object>> dataList = (List<Map<String, Object>>) validateResponse.getBody().get("data");
+                if (dataList != null && !dataList.isEmpty()) {
+                    Map<String, Object> data = dataList.get(0);
+                    String validCd = (String) data.get("valid");
+                    
+                    if (!"01".equals(validCd)) {
+                        return "INVALID_INFO"; // 진위확인 실패
+                    }
+                }
+            } else {
+                return "ERROR";
+            }
+            
+            // 2. 상태조회 API 호출 (휴/폐업 감지)
+            String statusUrl = "https://api.odcloud.kr/api/nts-businessman/v1/status?serviceKey=" + dataGoKrApiKey;
+            Map<String, List<String>> statusBody = Map.of("b_no", List.of(cleanBusinessNumber));
+            HttpEntity<Map<String, List<String>>> statusRequest = new HttpEntity<>(statusBody, headers);
+            
+            java.net.URI statusUri = new java.net.URI(statusUrl);
+            ResponseEntity<Map> statusResponse = restTemplate.postForEntity(statusUri, statusRequest, Map.class);
+            
+            if (statusResponse.getStatusCode() == HttpStatus.OK && statusResponse.getBody() != null) {
+                List<Map<String, Object>> dataList = (List<Map<String, Object>>) statusResponse.getBody().get("data");
                 if (dataList != null && !dataList.isEmpty()) {
                     Map<String, Object> data = dataList.get(0);
                     String statusCd = (String) data.get("b_stt_cd");
-                    // "01": 계속사업자
-                    return "01".equals(statusCd);
+                    
+                    if ("02".equals(statusCd) || "03".equals(statusCd)) {
+                        return "CLOSED_BUSINESS"; // 휴업 또는 폐업
+                    } else if ("01".equals(statusCd)) {
+                        return "SUCCESS"; // 계속사업자 (정상)
+                    }
                 }
             }
-            return false;
+            return "ERROR";
+            
         } catch (Exception e) {
             e.printStackTrace();
-            return false;
+            return "ERROR";
         }
     }
 

@@ -33,7 +33,7 @@ public class ProductUpdateRequest {
     private String purchaseUrl;
 
     // 슬라임 부가 정보
-    private Integer capacity; // 용량(ml)
+
     private String texture; // 질감
     private String scent; // 향
     private String color; // 색상

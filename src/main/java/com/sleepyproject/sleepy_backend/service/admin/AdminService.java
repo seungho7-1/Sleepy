@@ -96,6 +96,32 @@ public class AdminService {
                     map.put("targetId", r.getTargetId());
                     map.put("reason", r.getReason());
                     map.put("createdAt", r.getCreatedAt().toString());
+                    
+                    if (r.getTargetType() == ReportTargetType.POST) {
+                        postRepository.findById(r.getTargetId()).ifPresent(post -> {
+                            map.put("targetContent", post.getTitle() + " - " + post.getContent());
+                            map.put("targetAuthor", post.getMember().getNickname());
+                        });
+                    } else if (r.getTargetType() == ReportTargetType.COMMENT) {
+                        commentRepository.findById(r.getTargetId()).ifPresent(comment -> {
+                            map.put("targetContent", comment.getContent());
+                            map.put("targetAuthor", comment.getMember().getNickname());
+                            if (comment.getPost() != null) {
+                                map.put("postId", comment.getPost().getId());
+                            }
+                        });
+                    } else if (r.getTargetType() == ReportTargetType.REVIEW) {
+                        reviewRepository.findById(r.getTargetId()).ifPresent(review -> {
+                            map.put("targetContent", review.getContent());
+                            map.put("targetAuthor", review.getMember().getNickname());
+                            map.put("productId", review.getProduct().getId());
+                        });
+                    } else if (r.getTargetType() == ReportTargetType.PRODUCT) {
+                        productRepository.findById(r.getTargetId()).ifPresent(product -> {
+                            map.put("targetContent", product.getName());
+                            map.put("targetAuthor", product.getSeller().getNickname());
+                        });
+                    }
                     return map;
                 })
                 .collect(Collectors.toList());
@@ -127,6 +153,16 @@ public class AdminService {
                             "신고 조치로 인해 계정이 정지되었습니다.",
                             "/my/profile"
                     );
+                }
+            }
+            
+            // Resolve all other pending reports for the same target
+            List<Report> relatedReports = reportRepository.findByTargetTypeAndTargetIdAndStatus(
+                    report.getTargetType(), report.getTargetId(), ReportStatus.PENDING
+            );
+            for (Report related : relatedReports) {
+                if (!related.getId().equals(report.getId())) {
+                    related.resolve();
                 }
             }
         }

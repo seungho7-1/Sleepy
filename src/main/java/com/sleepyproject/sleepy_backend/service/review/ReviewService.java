@@ -75,6 +75,9 @@ public class ReviewService {
 
         Review saved = reviewRepository.save(review);
 
+        // 상품 리뷰 통계 동기화 (reviewCount, avgRating)
+        syncProductReviewStats(product);
+
         // [판매자 알림] 내 상품에 새 리뷰가 등록되면 판매자에게 알림
         Member seller = product.getSeller();
         if (seller != null && !seller.getId().equals(member.getId())) {
@@ -154,7 +157,6 @@ public class ReviewService {
         // 누적 3회 이상이면 숨김 처리
         if (review.getReportCount() >= 3) {
             review.hide();
-            // 필요 시 관리자나 판매자에게 알림 발송 가능
         }
     }
 
@@ -180,5 +182,20 @@ public class ReviewService {
                         r.getCreatedAt()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 상품의 reviewCount와 avgRating을 리뷰 테이블 기준으로 직접 재계산합니다.
+     */
+    private void syncProductReviewStats(Product product) {
+        List<com.sleepyproject.sleepy_backend.domain.review.Review> reviews =
+                reviewRepository.findAllByProductIdAndIsHiddenFalse(product.getId());
+        int count = reviews.size();
+        double avg = count > 0
+                ? reviews.stream().mapToDouble(r -> r.getRating()).average().orElse(0.0)
+                : 0.0;
+        // 소수점 둘째 자리로 내림
+        avg = Math.round(avg * 10.0) / 10.0;
+        product.updateReviewStats(count, avg);
     }
 }

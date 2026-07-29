@@ -1,5 +1,7 @@
 package com.sleepyproject.sleepy_backend.service.like;
 
+import com.sleepyproject.sleepy_backend.api.like.dto.LikeRequestDto;
+import com.sleepyproject.sleepy_backend.api.like.dto.LikeResponseDto;
 import com.sleepyproject.sleepy_backend.domain.board.Post;
 import com.sleepyproject.sleepy_backend.domain.like.Likes;
 import com.sleepyproject.sleepy_backend.domain.like.TargetType;
@@ -10,6 +12,7 @@ import com.sleepyproject.sleepy_backend.repository.board.PostRepository;
 import com.sleepyproject.sleepy_backend.repository.like.LikeRepository;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.review.ReviewRepository;
+import com.sleepyproject.sleepy_backend.service.board.PostRedisService;
 import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,64 +32,52 @@ public class LikeService {
     private final PostRepository postRepository;
     private final ReviewRepository reviewRepository;
     private final NotificationService notificationService;
+    private final PostRedisService postRedisService;
+    private final LikeAsyncService likeAsyncService;
+
 
     /**
      * 좋아요 토글(추가/취소) 로직
      *
-     * @param targetId      좋아요 대상의 ID (게시글 ID 또는 리뷰 ID)
-     * @param targetTypeStr 대상 타입 문자열 (POST 또는 REVIEW)
-     * @param email         요청한 유저 이메일
+     * @param username 요청한 유저 이메일
      * @return 좋아요 추가 시 true, 취소 시 false 반환
      */
-    @Transactional
-    public boolean toggleLike(Long targetId, String targetTypeStr, String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        
-        TargetType targetType = TargetType.valueOf(targetTypeStr.toUpperCase());
-        
-        Optional<Likes> optionalLike = likeRepository.findByMemberAndTargetIdAndTargetType(member, targetId, targetType);
 
-        if (optionalLike.isPresent()) {
-            likeRepository.delete(optionalLike.get());
+    @Transactional
+    public LikeResponseDto toggleLike(LikeRequestDto requestDto, String username) {
+
+        //로그인한 유저의 정보조회
+        Member member = memberRepository.findByUsername(username).orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        //요청혼 게시판의 타입 얻기(POST,REVIEW 나중에 COMMENT)
+        TargetType targetType = requestDto.getTargetType();
+
+        // Redis에서만 토글 ->
+        boolean isLiked = postRedisService.toggleLike(requestDto.getTargetId(), targetType, username);
+
+        // DB는 Async에게 맡김
+        likeAsyncService.syncLikeToDatabase(member, requestDto.getTargetId(), targetType, isLiked);
+        // 알림
+        if (isLiked) {
+
             if (targetType == TargetType.POST) {
-                Post post = postRepository.findById(targetId).orElseThrow();
-                post.decrementLikeCount();
-            } else if (targetType == TargetType.REVIEW) {
-                Review review = reviewRepository.findById(targetId).orElseThrow();
-                review.decrementLikeCount();
-            }
-            return false;
-        } else {
-            likeRepository.save(Likes.builder()
-                    .member(member)
-                    .targetId(targetId)
-                    .targetType(targetType)
-                    .build());
-            if (targetType == TargetType.POST) {
-                Post post = postRepository.findById(targetId).orElseThrow();
-                post.incrementLikeCount();
+
+                Post post = postRepository.findById(requestDto.getTargetId()).orElseThrow();
                 if (!post.getMember().getId().equals(member.getId())) {
-                    notificationService.createNotificationByMember(
-                            post.getMember(),
-                            NotificationType.NEW_LIKE,
-                            member.getNickname() + "님이 회원님의 게시글을 좋아합니다.",
-                            "/community/" + post.getId()
-                    );
+                    notificationService.createNotificationByMember(post.getMember(), NotificationType.NEW_LIKE, member.getNickname() + "님이 회원님의 게시글을 좋아합니다.", "/community/" + post.getId());
                 }
-            } else if (targetType == TargetType.REVIEW) {
-                Review review = reviewRepository.findById(targetId).orElseThrow();
-                review.incrementLikeCount();
+
+            } else {
+
+                Review review = reviewRepository.findById(requestDto.getTargetId()).orElseThrow();
                 if (!review.getMember().getId().equals(member.getId())) {
-                    notificationService.createNotificationByMember(
-                            review.getMember(),
-                            NotificationType.NEW_LIKE,
-                            member.getNickname() + "님이 회원님의 리뷰를 좋아합니다.",
-                            "/product/" + review.getProduct().getId()
-                    );
+                    notificationService.createNotificationByMember(review.getMember(), NotificationType.NEW_LIKE, member.getNickname() + "님이 회원님의 리뷰를 좋아합니다.", "/product/" + review.getProduct().getId());
                 }
             }
-            return true;
         }
+
+        int likeCount = postRedisService.getCachedLikeCount(requestDto.getTargetId(), targetType);
+
+        return new LikeResponseDto(isLiked, likeCount);
     }
 }

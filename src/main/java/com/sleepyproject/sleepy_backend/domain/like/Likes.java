@@ -1,5 +1,6 @@
 package com.sleepyproject.sleepy_backend.domain.like;
 
+import com.sleepyproject.sleepy_backend.domain.board.Post;
 import com.sleepyproject.sleepy_backend.domain.member.Member;
 import jakarta.persistence.*;
 import lombok.Builder;
@@ -12,6 +13,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor
+@Table(uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"member_id", "targetId", "targetType"})
+})
 public class Likes {
 
     @Id
@@ -23,7 +27,7 @@ public class Likes {
     private Member member;
 
     @Column(nullable = false)
-    private Long targetId;
+    private Long targetId; // 게시글의 ID 나중에 확장 가능성 (Comment,Product)
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -35,4 +39,5 @@ public class Likes {
         this.targetId = targetId;
         this.targetType = targetType;
     }
+
 }

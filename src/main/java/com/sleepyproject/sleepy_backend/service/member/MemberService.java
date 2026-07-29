@@ -8,6 +8,8 @@ import com.sleepyproject.sleepy_backend.domain.product.Product;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.product.ProductRepository;
 import com.sleepyproject.sleepy_backend.repository.product.ProductTagRepository;
+import com.sleepyproject.sleepy_backend.domain.member.BrandScrap;
+import com.sleepyproject.sleepy_backend.domain.member.BrandScrapRepository;
 import com.sleepyproject.sleepy_backend.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +37,7 @@ public class MemberService {
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     private final com.sleepyproject.sleepy_backend.repository.NotificationRepository notificationRepository;
     private final com.sleepyproject.sleepy_backend.repository.review.ReviewRepository reviewRepository;
+    private final BrandScrapRepository brandScrapRepository;
 
     @org.springframework.beans.factory.annotation.Autowired
     private jakarta.persistence.EntityManager entityManager;
@@ -154,7 +157,7 @@ public class MemberService {
                             p.getShopName(),
                             p.getPurchaseUrl(),
                             p.getSeller().getId(),
-                            p.getCapacity(),
+
                             p.getTexture(),
                             p.getScent(),
                             p.getColor(),
@@ -166,10 +169,42 @@ public class MemberService {
                             p.getDescriptionImageUrlList(),
                             p.getCategory(),
                             reviewRepository.countByProductId(p.getId()),
+                            p.getAvgRating(),
                             p.getSeller().getProfileImageUrl()
                     );
                 })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 특정 판매자의 공개 프로필 조회
+     */
+    public java.util.Map<String, Object> getSellerProfile(Long id, String username) {
+        Member member = memberRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
+
+        long scrapCount = brandScrapRepository.countBySellerId(id);
+        boolean isScrapped = false;
+        if (username != null) {
+            Member currentUser = memberRepository.findByUsername(username).orElse(null);
+            if (currentUser != null) {
+                isScrapped = brandScrapRepository.existsByMemberIdAndSellerId(currentUser.getId(), id);
+            }
+        }
+
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", member.getId());
+        map.put("shopName", member.getShopName() != null ? member.getShopName() : member.getNickname());
+        map.put("profileImageUrl", member.getProfileImageUrl() != null ? member.getProfileImageUrl() : "");
+        map.put("introduction", member.getIntroduction() != null ? member.getIntroduction() : "감각적인 디자인과 트렌드를 선도하는 " + (member.getShopName() != null ? member.getShopName() : member.getNickname()) + "입니다.");
+        map.put("siteUrl", member.getSiteUrl() != null ? member.getSiteUrl() : "");
+        map.put("youtubeUrl", member.getYoutubeUrl() != null ? member.getYoutubeUrl() : "");
+        map.put("instagramUrl", member.getInstagramUrl() != null ? member.getInstagramUrl() : "");
+        map.put("facebookUrl", member.getFacebookUrl() != null ? member.getFacebookUrl() : "");
+        map.put("tiktokUrl", member.getTiktokUrl() != null ? member.getTiktokUrl() : "");
+        map.put("scrapCount", scrapCount);
+        map.put("isScrapped", isScrapped);
+        return map;
     }
 
     /**
@@ -379,5 +414,69 @@ public class MemberService {
                 
         member.updatePassword(passwordEncoder.encode(request.getNewPassword()));
         redisTemplate.delete("PW_RESET_AUTH:" + request.getEmail());
+    }
+
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> getScrappedBrands(String username) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        return brandScrapRepository.findByMemberIdOrderByCreatedAtDesc(member.getId(), org.springframework.data.domain.Pageable.unpaged())
+                .stream()
+                .map(scrap -> {
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("id", scrap.getSeller().getId());
+                    map.put("shopName", scrap.getSeller().getShopName() != null ? scrap.getSeller().getShopName() : scrap.getSeller().getNickname());
+                    map.put("profileImageUrl", scrap.getSeller().getProfileImageUrl() != null ? scrap.getSeller().getProfileImageUrl() : "");
+                    map.put("scrapCount", brandScrapRepository.countBySellerId(scrap.getSeller().getId()));
+                    return map;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public java.util.Map<String, Object> toggleBrandScrap(String username, Long sellerId) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Member seller = memberRepository.findById(sellerId)
+                .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
+
+        if (seller.getRole() != Role.SELLER) {
+            throw new IllegalArgumentException("해당 유저는 판매자가 아닙니다.");
+        }
+
+        java.util.Optional<BrandScrap> existingScrap = brandScrapRepository.findByMemberIdAndSellerId(member.getId(), sellerId);
+        boolean isScrapped;
+
+        if (existingScrap.isPresent()) {
+            brandScrapRepository.delete(existingScrap.get());
+            isScrapped = false;
+        } else {
+            BrandScrap newScrap = BrandScrap.builder()
+                    .member(member)
+                    .seller(seller)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            brandScrapRepository.save(newScrap);
+            isScrapped = true;
+        }
+
+        return java.util.Map.of(
+                "isScrapped", isScrapped,
+                "scrapCount", brandScrapRepository.countBySellerId(sellerId)
+        );
+    }
+
+    @Transactional
+    public void updateSellerProfileFields(String username, String shopName, String introduction, String youtubeUrl, String instagramUrl, String facebookUrl, String tiktokUrl) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (member.getRole() != Role.SELLER) {
+            throw new IllegalArgumentException("판매자만 프로필을 수정할 수 있습니다.");
+        }
+
+        member.updateSellerProfile(shopName, introduction, youtubeUrl, instagramUrl, facebookUrl, tiktokUrl);
+        memberRepository.save(member);
     }
 }

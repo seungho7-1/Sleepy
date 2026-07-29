@@ -2,6 +2,7 @@ package com.sleepyproject.sleepy_backend.domain.member;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDateTime;
 
@@ -53,6 +54,18 @@ public class Member {
 
     // 스토어명 (판매자 필수)
     private String shopName;
+
+    // 쇼핑몰 사이트 URL (판매자 전용)
+    private String siteUrl;
+
+    // 소개글 (판매자 전용)
+    private String introduction;
+
+    // SNS 링크 (판매자 전용)
+    private String youtubeUrl;
+    private String instagramUrl;
+    private String facebookUrl;
+    private String tiktokUrl;
 
     // 계정 상태 (ACTIVE, SUSPENDED)
     @Builder.Default
@@ -115,5 +128,18 @@ public class Member {
 
     public void updateStatus(String status) {
         this.status = status;
+    }
+
+    public void updateSellerProfile(String shopName, String introduction, String youtubeUrl, String instagramUrl, String facebookUrl, String tiktokUrl) {
+        if (shopName != null) this.shopName = shopName;
+        this.introduction = introduction;
+        this.youtubeUrl = youtubeUrl;
+        this.instagramUrl = instagramUrl;
+        this.facebookUrl = facebookUrl;
+        this.tiktokUrl = tiktokUrl;
+    }
+
+    public void updateSiteUrl(String siteUrl) {
+        this.siteUrl = siteUrl;
     }
 }

@@ -11,4 +11,5 @@ import java.util.List;
 public interface ReportRepository extends JpaRepository<Report, Long> {
     long countByStatus(ReportStatus status);
     List<Report> findByStatusOrderByCreatedAtDesc(ReportStatus status);
+    List<Report> findByTargetTypeAndTargetIdAndStatus(com.sleepyproject.sleepy_backend.domain.report.ReportTargetType targetType, Long targetId, ReportStatus status);
 }

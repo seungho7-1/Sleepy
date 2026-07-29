@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 슬라임 마켓에 등록된 상품 정보를 나타내는 도메인 엔티티 클래스입니다.
@@ -47,7 +49,7 @@ public class Product {
     private String purchaseUrl;
 
     // 슬라임 부가 정보
-    private Integer capacity; // 용량(ml)
+
     private String texture; // 질감
     private String scent; // 향
     private String color; // 색상
@@ -59,6 +61,16 @@ public class Product {
 
     // 상품 등록 시간
     private LocalDateTime createdAt;
+
+    // 리뷰 수 (리뷰 작성/삭제 시 동기화)
+    @Builder.Default
+    @Column(columnDefinition = "int default 0")
+    private int reviewCount = 0;
+
+    // 평균 별점 (리뷰 작성/삭제 시 재계산)
+    @Builder.Default
+    @Column(columnDefinition = "double default 0")
+    private double avgRating = 0.0;
 
     // 비디오 파일 URL 또는 외부 영상 링크
     @Column(length = 2000)
@@ -78,11 +90,11 @@ public class Product {
 
     // 태그 양방향 연관관계 (N+1 문제 해결을 위한 지연/즉시 로딩용)
     @OneToMany(mappedBy = "product")
-    private java.util.List<ProductTag> productTags = new java.util.ArrayList<>();
+    private List<ProductTag> productTags = new ArrayList<>();
 
     @Builder
     public Product(Member seller, String name, int price, String description, String imageUrl, String shopName, String purchaseUrl, 
-                   Integer capacity, String texture, String scent, String color, LocalDate releaseDate, LocalDateTime createdAt,
+                   String texture, String scent, String color, LocalDate releaseDate, LocalDateTime createdAt,
                    String videoUrl, String videoType, String descriptionImageUrl, String category) {
         this.seller = seller;
         this.name = name;
@@ -91,7 +103,7 @@ public class Product {
         this.imageUrl = imageUrl;
         this.shopName = shopName;
         this.purchaseUrl = purchaseUrl;
-        this.capacity = capacity;
+
         this.texture = texture;
         this.scent = scent;
         this.color = color;
@@ -107,7 +119,7 @@ public class Product {
      * 상품 정보를 수정합니다. (더티 체킹 반영)
      */
     public void update(String name, int price, String description, String imageUrl, String shopName, String purchaseUrl, 
-                       Integer capacity, String texture, String scent, String color, LocalDate releaseDate,
+                       String texture, String scent, String color, LocalDate releaseDate,
                        String videoUrl, String videoType, String descriptionImageUrl, String category) {
         this.name = name;
         this.price = price;
@@ -115,7 +127,7 @@ public class Product {
         this.imageUrl = imageUrl;
         this.shopName = shopName;
         this.purchaseUrl = purchaseUrl;
-        this.capacity = capacity;
+
         this.texture = texture;
         this.scent = scent;
         this.color = color;
@@ -135,6 +147,15 @@ public class Product {
 
     public void unhide() {
         this.isHidden = false;
+    }
+
+    /**
+     * 리뷰 수와 평균 별점을 업데이트합니다.
+     * 리뷰 작성/삭제 시 호출합니다.
+     */
+    public void updateReviewStats(int reviewCount, double avgRating) {
+        this.reviewCount = reviewCount;
+        this.avgRating = avgRating;
     }
 
     /**

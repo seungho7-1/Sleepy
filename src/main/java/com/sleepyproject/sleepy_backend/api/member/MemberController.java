@@ -110,6 +110,18 @@ public class MemberController {
     }
 
     /**
+     * 특정 판매자의 공개 프로필 정보를 조회합니다.
+     */
+    @GetMapping("/profile/{id}")
+    public ResponseEntity<?> getSellerProfile(@PathVariable Long id, Authentication authentication) {
+        String username = null;
+        if (authentication != null && authentication.getPrincipal() instanceof String) {
+            username = (String) authentication.getPrincipal();
+        }
+        return ResponseEntity.ok(memberService.getSellerProfile(id, username));
+    }
+
+    /**
      * 마이페이지에서 내가 등록한 상품 목록을 조회합니다. (판매자 권한 전용)
      *
      * @param authentication 현재 로그인된 판매자 인증 정보
@@ -272,6 +284,35 @@ public class MemberController {
     public ResponseEntity<?> resetPassword(@RequestBody PasswordResetRequest request) {
         memberService.resetPassword(request);
         return ResponseEntity.ok(Map.of("message", "비밀번호가 성공적으로 변경되었습니다."));
+    }
+
+    @PostMapping("/sellers/{id}/scrap")
+    public ResponseEntity<?> toggleBrandScrap(@PathVariable Long id, Authentication authentication) {
+        String username = (String) authentication.getPrincipal();
+        return ResponseEntity.ok(memberService.toggleBrandScrap(username, id));
+    }
+
+    @GetMapping("/scraps/brands")
+    public ResponseEntity<?> getScrappedBrands(Authentication authentication) {
+        String username = (String) authentication.getPrincipal();
+        return ResponseEntity.ok(memberService.getScrappedBrands(username));
+    }
+
+    @PutMapping("/sellers/profile")
+    public ResponseEntity<?> updateSellerProfile(@RequestBody SellerProfileUpdateRequest request, Authentication authentication) {
+        String username = (String) authentication.getPrincipal();
+        memberService.updateSellerProfileFields(username, request.getShopName(), request.getIntroduction(), request.getYoutubeUrl(), request.getInstagramUrl(), request.getFacebookUrl(), request.getTiktokUrl());
+        return ResponseEntity.ok(Map.of("message", "프로필이 성공적으로 업데이트되었습니다."));
+    }
+
+    @lombok.Data
+    public static class SellerProfileUpdateRequest {
+        private String shopName;
+        private String introduction;
+        private String youtubeUrl;
+        private String instagramUrl;
+        private String facebookUrl;
+        private String tiktokUrl;
     }
 
     @lombok.Data

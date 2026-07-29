@@ -23,7 +23,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"seller"})
     @org.springframework.data.jpa.repository.Query("select p from Product p where " +
+            "(:sellerId is null or p.seller.id = :sellerId) and " +
             "(:category is null or :category = '' or p.category = :category) and " +
             "(:keyword is null or :keyword = '' or p.name like %:keyword% or p.shopName like %:keyword%)")
-    Page<Product> findByCategoryAndKeyword(String category, String keyword, Pageable pageable);
+    Page<Product> findByCategoryAndKeywordAndSellerId(String category, String keyword, Long sellerId, Pageable pageable);
 }

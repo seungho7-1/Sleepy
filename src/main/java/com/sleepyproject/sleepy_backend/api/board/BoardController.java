@@ -10,10 +10,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 커뮤니티 게시글 및 댓글 관련 HTTP 요청을 처리하는 컨트롤러 클래스입니다.
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/board")
 @RequiredArgsConstructor
@@ -70,10 +72,12 @@ public class BoardController {
         return ResponseEntity.ok(boardService.incrementViewCount(id, identifier, username));
     }
 
+    /**
     @PostMapping("/posts/{id}/like")
     public ResponseEntity<?> toggleLike(@PathVariable Long id, Authentication authentication) {
         return ResponseEntity.ok(boardService.toggleLike(id, authentication.getName()));
     }
+     **/
 
     @PutMapping("/posts/{id}")
     public ResponseEntity<?> updatePost(@PathVariable Long id, @RequestBody PostRequest request, Authentication authentication) {
@@ -96,8 +100,16 @@ public class BoardController {
      */
     @PostMapping("/comments")
     public ResponseEntity<?> createComment(@RequestBody CommentRequest request, Authentication authentication) {
-        Long commentId = boardService.createComment(request, authentication.getName());
-        return ResponseEntity.ok(commentId);
+        String username = authentication != null ? authentication.getName() : "Unknown";
+        log.info("Attempting to create comment. targetType: {}, targetId: {}, user: {}", request.getTargetType(), request.getTargetId(), username);
+        try {
+            Long commentId = boardService.createComment(request, username);
+            log.info("Successfully created comment. ID: {}", commentId);
+            return ResponseEntity.ok(commentId);
+        } catch (Exception e) {
+            log.error("Failed to create comment. targetType: {}, targetId: {}, user: {}. Error: {}", request.getTargetType(), request.getTargetId(), username, e.getMessage(), e);
+            throw e;
+        }
     }
 
     /**
@@ -120,19 +132,23 @@ public class BoardController {
      * @return 내가 쓴 게시글 목록 리스트
      */
     @GetMapping("/my-posts")
-    public ResponseEntity<?> getMyPosts(@RequestParam(required = false) String type, Authentication authentication) {
-        return ResponseEntity.ok(boardService.getMyPosts(authentication.getName(), type));
+    public ResponseEntity<?> getMyPosts(
+            @RequestParam(required = false) String type, 
+            @org.springframework.data.web.PageableDefault(size = 10) org.springframework.data.domain.Pageable pageable,
+            Authentication authentication) {
+        return ResponseEntity.ok(boardService.getMyPosts(authentication.getName(), type, pageable));
     }
 
     /**
      * 내가 작성한 댓글 목록을 조회합니다. (인증 필요)
      *
-     * @param authentication 유저 인증 객체
-     * @return 내가 쓴 댓글 목록 리스트
+     * @return 내가 쓴 댓글 목록 페이지
      */
     @GetMapping("/my-comments")
-    public ResponseEntity<?> getMyComments(Authentication authentication) {
-        return ResponseEntity.ok(boardService.getMyComments(authentication.getName()));
+    public ResponseEntity<?> getMyComments(
+            @org.springframework.data.web.PageableDefault(size = 10) org.springframework.data.domain.Pageable pageable,
+            Authentication authentication) {
+        return ResponseEntity.ok(boardService.getMyComments(authentication.getName(), pageable));
     }
 
     /**

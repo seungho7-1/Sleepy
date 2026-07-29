@@ -1,11 +1,14 @@
 package com.sleepyproject.sleepy_backend.service.board;
 
+import com.sleepyproject.sleepy_backend.domain.like.TargetType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PostRedisService {
@@ -44,11 +47,13 @@ public class PostRedisService {
      * [좋아요 토글] Redis Set 활용
      * @return true면 좋아요 추가됨, false면 좋아요 취소됨
      */
-    public boolean toggleLike(Long postId, String username) {
-        String likeKey = "post:likes:" + postId;
+    public boolean toggleLike(Long targetId, TargetType targetType, String username) {
+        String likeKey = generateLikeKey(targetId, targetType);
 
         // 1. 해당 유저가 이미 Set에 들어있는지 확인 (SISMEMBER) -> O(1) 속도로 매우 빠름
         Boolean isMember = stringRedisTemplate.opsForSet().isMember(likeKey, username);
+
+        log.info("=== [Redis Toggle] key: {}, username: {}, isAlreadyMember: {} ===", likeKey, username, isMember);
 
         if (Boolean.TRUE.equals(isMember)) {
             // 2. 이미 눌렀다면 Set에서 유저 제거 (좋아요 취소)
@@ -60,21 +65,27 @@ public class PostRedisService {
             return true;
         }
     }
+    // --- 헬퍼 메소드 ---
+    private String generateLikeKey(Long targetId, TargetType targetType) {
+        String typePrefix = targetType.name().toLowerCase();
+        return typePrefix + ":likes:" + targetId;
+    }
 
     /**
      * [좋아요 총개수] Redis Set의 크기 반환 (SCARD)
      */
-    public int getCachedLikeCount(Long postId) {
-        String likeKey = "post:likes:" + postId;
-        Long count = stringRedisTemplate.opsForSet().size(likeKey);
-        return count != null ? count.intValue() : 0;
+    public int getCachedLikeCount(Long targetId, TargetType targetType) {
+        String key = generateLikeKey(targetId, targetType);
+        Long size = stringRedisTemplate.opsForSet().size(key);
+        return size == null ? 0 : size.intValue();
     }
 
+
     /**
-     * [나의 좋아요 상태] 특정 유저가 하트를 눌렀는지 확인
+     * [나의 좋아요 상태] 특정 유저가 타겟(게시글/리뷰 등)에 하트를 눌렀는지 확인
      */
-    public boolean isLikedByUser(Long postId, String username) {
-        String likeKey = "post:likes:" + postId;
+    public boolean isLikedByUser(Long targetId, TargetType targetType, String username) {
+        String likeKey = generateLikeKey(targetId, targetType);
         return Boolean.TRUE.equals(stringRedisTemplate.opsForSet().isMember(likeKey, username));
     }
 

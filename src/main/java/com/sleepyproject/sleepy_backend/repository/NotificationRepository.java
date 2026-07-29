@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     List<Notification> findByMemberIdOrderByCreatedAtDesc(Long memberId);
+    org.springframework.data.domain.Page<Notification> findByMemberIdOrderByCreatedAtDesc(Long memberId, org.springframework.data.domain.Pageable pageable);
     List<Notification> findByMemberIdAndIsReadFalseOrderByCreatedAtDesc(Long memberId);
     long countByMemberIdAndIsReadFalse(Long memberId);
     @org.springframework.data.jpa.repository.Modifying

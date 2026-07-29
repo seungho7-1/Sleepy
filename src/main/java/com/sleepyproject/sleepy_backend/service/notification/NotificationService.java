@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import org.springframework.web.client.RestTemplate;
@@ -26,6 +27,9 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final MemberRepository memberRepository;
+
+    @Value("${app.env:dev}")
+    private String appEnv;
 
     @Transactional
     public Notification createNotification(String username, NotificationType type, String message, String relatedUrl) {
@@ -61,16 +65,22 @@ public class NotificationService {
     @Transactional
     public void notifyAllAdmins(NotificationType type, String message, String relatedUrl) {
         List<Member> admins = memberRepository.findByRole(com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN);
+        
+        // 중복 계정/닉네임으로 인한 중복 알림 방지 (닉네임 기준 필터링)
+        java.util.Set<String> notifiedNicknames = new java.util.HashSet<>();
         for (Member admin : admins) {
-            createNotificationByMember(admin, type, message, relatedUrl);
+            if (!notifiedNicknames.contains(admin.getNickname())) {
+                createNotificationByMember(admin, type, message, relatedUrl);
+                notifiedNicknames.add(admin.getNickname());
+            }
         }
     }
 
     @Transactional(readOnly = true)
-    public List<Notification> getNotificationsForMember(String username) {
+    public org.springframework.data.domain.Page<Notification> getNotificationsForMember(String username, org.springframework.data.domain.Pageable pageable) {
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        return notificationRepository.findByMemberIdOrderByCreatedAtDesc(member.getId());
+        return notificationRepository.findByMemberIdOrderByCreatedAtDesc(member.getId(), pageable);
     }
 
     @Transactional(readOnly = true)
@@ -106,8 +116,9 @@ public class NotificationService {
             String projectId = "sleepy-frontend-eac65";
             String apiKey = "AIzaSyCko0AeT3hjwvGBlGydpJ-PjA445Txswxw";
             String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString()).replace("+", "%20");
-            String urlStr = String.format("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/notifications/%s/userNotifications/%d?key=%s", 
-                projectId, encodedNickname, notification.getId(), apiKey);
+            String collection = "dev".equals(appEnv) ? "dev_notifications" : "notifications";
+            String urlStr = String.format("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/%s/%s/userNotifications/%d?key=%s", 
+                projectId, collection, encodedNickname, notification.getId(), apiKey);
 
             String jsonBody = String.format(
                 "{\"fields\": {" +
@@ -148,8 +159,9 @@ public class NotificationService {
             String projectId = "sleepy-frontend-eac65";
             String apiKey = "AIzaSyCko0AeT3hjwvGBlGydpJ-PjA445Txswxw";
             String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString()).replace("+", "%20");
-            String urlStr = String.format("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/notifications/%s/userNotifications/%d?updateMask.fieldPaths=isRead&key=%s", 
-                projectId, encodedNickname, notificationId, apiKey);
+            String collection = "dev".equals(appEnv) ? "dev_notifications" : "notifications";
+            String urlStr = String.format("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/%s/%s/userNotifications/%d?updateMask.fieldPaths=isRead&key=%s", 
+                projectId, collection, encodedNickname, notificationId, apiKey);
 
             String jsonBody = "{\"fields\": {\"isRead\": {\"booleanValue\": true}}}";
 

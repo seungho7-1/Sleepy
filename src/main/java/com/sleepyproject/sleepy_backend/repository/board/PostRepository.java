@@ -16,21 +16,24 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByBoardTypeAndIsHiddenFalse(BoardType boardType, Pageable pageable);
 
     @EntityGraph(attributePaths = {"member"})
-    @Query("SELECT DISTINCT p FROM Post p LEFT JOIN Comment c ON c.post = p " +
+    @Query("SELECT DISTINCT p FROM Post p LEFT JOIN Comment c ON c.post = p LEFT JOIN p.hashtags h " +
             "WHERE p.boardType = :boardType AND p.isHidden = false AND " +
             "(:keyword IS NULL OR :keyword = '' OR " +
             "LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(p.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "LOWER(c.content) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+            "LOWER(c.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(h) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Post> findByBoardTypeAndKeyword(@Param("boardType") BoardType boardType, @Param("keyword") String keyword, Pageable pageable);
 
     @EntityGraph(attributePaths = {"member"})
-    @Query("SELECT DISTINCT p FROM Post p LEFT JOIN Comment c ON c.post = p " +
+    @Query("SELECT DISTINCT p FROM Post p LEFT JOIN Comment c ON c.post = p LEFT JOIN p.hashtags h " +
             "WHERE p.boardType IN :boardTypes AND p.isHidden = false AND " +
             "(:keyword IS NULL OR :keyword = '' OR " +
             "LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(p.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "LOWER(c.content) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+            "LOWER(c.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(h) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    //boardtype으로 검색을한다.
     Page<Post> findByBoardTypeInAndKeyword(@Param("boardTypes") List<BoardType> boardTypes, @Param("keyword") String keyword, Pageable pageable);
 
     @EntityGraph(attributePaths = {"member"})
@@ -42,7 +45,15 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @EntityGraph(attributePaths = {"member"})
     List<Post> findByMemberUsernameAndBoardTypeNotAndIsHiddenFalseOrderByCreatedAtDesc(String username, BoardType boardType);
 
+    @EntityGraph(attributePaths = {"member"})
+    Page<Post> findByMemberUsernameAndBoardTypeAndIsHiddenFalseOrderByCreatedAtDesc(String username, BoardType boardType, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"member"})
+    Page<Post> findByMemberUsernameAndBoardTypeNotAndIsHiddenFalseOrderByCreatedAtDesc(String username, BoardType boardType, Pageable pageable);
+
     long countByCreatedAtAfter(java.time.LocalDateTime date);
+
+    List<Post> findByCreatedAtAfter(java.time.LocalDateTime date);
 
 
     /**
