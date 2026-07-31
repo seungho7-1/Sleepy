@@ -2152,3 +2152,5 @@ org.springframework.security.access.AccessDeniedException: Access Denied
 2026-08-01 08:50:40.779 [http-nio-8383-exec-7] TRACE o.s.s.w.a.i.RequestMatcherDelegatingAuthorizationManager - Checking authorization on GET /api/board/posts?keyword=&page=0&size=20&sort=createdAt,desc&type=NOTICE using org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer$$Lambda/0x000001d716de8200@3e9c1e3c
 2026-08-01 08:50:40.780 [http-nio-8383-exec-7] DEBUG o.s.security.web.FilterChainProxy - Secured GET /api/board/posts?keyword=&page=0&size=20&sort=createdAt,desc&type=NOTICE
 2026-08-01 08:50:40.825 [http-nio-8383-exec-7] TRACE o.s.s.w.h.writers.HstsHeaderWriter - Not injecting HSTS header since it did not match request to [Is Secure]
+2026-08-01 08:55:00.012 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 스케줄러 시작 ====
+2026-08-01 08:55:00.190 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 완료 ====
