@@ -27,7 +27,7 @@ public class InquiryService {
 
     @Transactional
     public InquiryDto.Response createInquiry(String username, InquiryDto.Request request) {
-        Member member = memberRepository.findByEmail(username)
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
 
@@ -51,7 +51,7 @@ public class InquiryService {
 
     @Transactional(readOnly = true)
     public List<InquiryDto.Response> getMyInquiries(String username) {
-        Member member = memberRepository.findByEmail(username)
+        Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         return inquiryRepository.findByMemberIdOrderByCreatedAtDesc(member.getId()).stream()
