@@ -35,24 +35,15 @@ services:
     depends_on:
       - db
       - redis
+    env_file:
+      - .env
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - DB_URL=jdbc:mysql://db:3306/sleepy?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
       - DB_USERNAME=root
-      - DB_PASSWORD=${DB_PASSWORD}
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
-      - AWS_S3_REGION=${AWS_S3_REGION}
-      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
-      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
       - APP_FRONTEND_URL=https://sleepyslime.p-e.kr
-      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
-      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
-      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
 
 volumes:
   db_data:
