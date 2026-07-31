@@ -265,7 +265,9 @@ public class BoardService {
             Member targetMember = savedComment.getParent().getMember();
             if (!targetMember.getId().equals(member.getId())) {
                 String url = savedComment.getPost() != null
-                        ? "/community/" + savedComment.getPost().getId() + "#comment-" + savedComment.getId()
+                        ? (savedComment.getPost().getBoardType() == com.sleepyproject.sleepy_backend.domain.board.BoardType.MEDIA
+                                ? "/shorts?postId=" + savedComment.getPost().getId() + "#comment-" + savedComment.getId()
+                                : "/community/" + savedComment.getPost().getId() + "#comment-" + savedComment.getId())
                         : "/product/" + savedComment.getReview().getProduct().getId() + "#comment-" + savedComment.getId();
                 notificationService.createNotificationByMember(
                         targetMember,
@@ -278,11 +280,14 @@ public class BoardService {
             if (savedComment.getPost() != null) {
                 Member targetMember = savedComment.getPost().getMember();
                 if (!targetMember.getId().equals(member.getId())) {
+                    String url = savedComment.getPost().getBoardType() == com.sleepyproject.sleepy_backend.domain.board.BoardType.MEDIA
+                            ? "/shorts?postId=" + savedComment.getPost().getId() + "#comment-" + savedComment.getId()
+                            : "/community/" + savedComment.getPost().getId() + "#comment-" + savedComment.getId();
                     notificationService.createNotificationByMember(
                             targetMember,
                             com.sleepyproject.sleepy_backend.domain.notification.NotificationType.NEW_COMMENT,
                             member.getNickname() + "님이 회원님의 게시글에 댓글을 달았습니다.",
-                            "/community/" + savedComment.getPost().getId() + "#comment-" + savedComment.getId()
+                            url
                     );
                 }
             } else if (savedComment.getReview() != null) {

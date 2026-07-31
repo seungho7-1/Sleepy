@@ -64,7 +64,10 @@ public class LikeService {
 
                 Post post = postRepository.findById(requestDto.getTargetId()).orElseThrow();
                 if (!post.getMember().getId().equals(member.getId())) {
-                    notificationService.createNotificationByMember(post.getMember(), NotificationType.NEW_LIKE, member.getNickname() + "님이 회원님의 게시글을 좋아합니다.", "/community/" + post.getId());
+                    String url = post.getBoardType() == com.sleepyproject.sleepy_backend.domain.board.BoardType.MEDIA 
+                        ? "/shorts?postId=" + post.getId() 
+                        : "/community/" + post.getId();
+                    notificationService.createNotificationByMember(post.getMember(), NotificationType.NEW_LIKE, member.getNickname() + "님이 회원님의 게시글을 좋아합니다.", url);
                 }
 
             } else {
