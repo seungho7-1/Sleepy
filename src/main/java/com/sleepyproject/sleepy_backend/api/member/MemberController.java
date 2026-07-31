@@ -110,7 +110,12 @@ public class MemberController {
         }
         // 브라우저의 Refresh Token 쿠키 파괴 지시
         org.springframework.http.ResponseCookie deleteCookie = org.springframework.http.ResponseCookie.from("refreshToken", "")
-                .httpOnly(true).secure(false).path("/").maxAge(0).sameSite("Lax").build();
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("None")
+                .build();
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
                 .body(Map.of("message", "완벽하게 로그아웃 되었습니다."));

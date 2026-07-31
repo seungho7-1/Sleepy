@@ -100,10 +100,10 @@ public class JwtUtil {
     public ResponseCookie createTokenCookie(String cookieName, String token, long maxAge) {
         return ResponseCookie.from(cookieName, token)
                 .httpOnly(true)    // 자바스크립트 접근 차단 (XSS 방어)
-                .secure(false)     // Https를 쓴다면 true로 변경해야 함. 지금은 로컬/http 테스트를 위해 false
+                .secure(true)     // Https를 쓴다면 true로 변경해야 함. 지금은 로컬/http 테스트를 위해 false
                 .path("/")         // 모든 경로에서 쿠키 사용 가능
                 .maxAge(maxAge / 1000) // 초 단위 설정
-                .sameSite("Lax")   // CSRF 일부 방어
+                .sameSite("None")   // CSRF 일부 방어
                 .build();
     }
 
@@ -140,10 +140,10 @@ public class JwtUtil {
     public ResponseCookie createRefreshTokenCookie(String token) {
         return ResponseCookie.from("refreshToken", token)
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .path("/")
                 .maxAge(REFRESH_TOKEN_EXPIRATION / 1000)
-                .sameSite("Lax")
+                .sameSite("None")
                 .build();
     }
 
