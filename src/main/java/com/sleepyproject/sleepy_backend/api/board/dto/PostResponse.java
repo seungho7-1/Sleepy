@@ -16,6 +16,7 @@ public class PostResponse {
     private String content;
     private String boardType;
     private String imageUrl;
+    private String thumbnailUrl;
     private String nickname;
     private int viewCount;
     private int likeCount;

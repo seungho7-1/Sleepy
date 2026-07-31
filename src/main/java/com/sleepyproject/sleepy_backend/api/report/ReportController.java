@@ -18,11 +18,18 @@ public class ReportController {
     @PostMapping
     public ResponseEntity<?> createReport(@RequestBody Map<String, Object> request, Authentication authentication) {
         String targetType = (String) request.get("targetType");
-        Long targetId = Long.valueOf(String.valueOf(request.get("targetId")));
+        Object targetIdObj = request.get("targetId");
         String reason = (String) request.get("reason");
 
-        if (targetType == null || targetId == null || reason == null || reason.trim().isEmpty()) {
+        if (targetType == null || targetIdObj == null || reason == null || reason.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("message", "필수 입력값이 누락되었습니다."));
+        }
+
+        Long targetId;
+        try {
+            targetId = targetIdObj instanceof Number ? ((Number) targetIdObj).longValue() : Long.valueOf(targetIdObj.toString());
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "잘못된 대상 ID입니다."));
         }
 
         Long reportId = reportService.createReport(authentication.getName(), targetType, targetId, reason);

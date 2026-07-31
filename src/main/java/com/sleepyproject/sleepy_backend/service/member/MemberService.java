@@ -5,13 +5,18 @@ import com.sleepyproject.sleepy_backend.api.product.dto.ProductResponse;
 import com.sleepyproject.sleepy_backend.domain.member.Member;
 import com.sleepyproject.sleepy_backend.domain.member.Role;
 import com.sleepyproject.sleepy_backend.domain.product.Product;
+import com.sleepyproject.sleepy_backend.domain.redis.RefreshToken;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.product.ProductRepository;
 import com.sleepyproject.sleepy_backend.repository.product.ProductTagRepository;
 import com.sleepyproject.sleepy_backend.domain.member.BrandScrap;
 import com.sleepyproject.sleepy_backend.domain.member.BrandScrapRepository;
+import com.sleepyproject.sleepy_backend.repository.redis.BlackListedTokenRepository;
+import com.sleepyproject.sleepy_backend.repository.redis.RefreshTokenRepository;
 import com.sleepyproject.sleepy_backend.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +33,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MemberService {
 
+    private final RefreshTokenRepository refreshTokenRepository;
     private final MemberRepository memberRepository;
     private final ProductRepository productRepository;
     private final ProductTagRepository productTagRepository;
@@ -38,11 +44,11 @@ public class MemberService {
     private final com.sleepyproject.sleepy_backend.repository.NotificationRepository notificationRepository;
     private final com.sleepyproject.sleepy_backend.repository.review.ReviewRepository reviewRepository;
     private final BrandScrapRepository brandScrapRepository;
-
-    @org.springframework.beans.factory.annotation.Autowired
+    private final BlackListedTokenRepository blackListedTokenRepository;
+    @Autowired
     private jakarta.persistence.EntityManager entityManager;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     @org.springframework.context.annotation.Lazy
     private com.sleepyproject.sleepy_backend.service.product.ProductService productService;
 
@@ -52,9 +58,9 @@ public class MemberService {
      * @param request 회원가입 요청 DTO (이메일, 비밀번호, 닉네임, 역할 정보 포함)
      * @throws IllegalArgumentException 이미 동일한 이메일이 등록되어 있을 경우 발생
      */
-    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.naver.client-id:}")
+    @Value("${spring.security.oauth2.client.registration.naver.client-id:}")
     private String naverClientId;
-    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.naver.client-secret:}")
+    @Value("${spring.security.oauth2.client.registration.naver.client-secret:}")
     private String naverClientSecret;
 
     public void signup(SignupRequest request) {
@@ -97,16 +103,76 @@ public class MemberService {
             throw new IllegalArgumentException("비밀번호 불일치");
         }
 
-        String token = jwtUtil.generateToken(member.getUsername(), member.getRole().name());
+        String accessToken = jwtUtil.generateAccessToken(member.getUsername(), member.getRole().name());
+        String refreshToken = jwtUtil.generateRefreshToken(member.getUsername());
+        // Redis에 Refresh Token 저장 (비즈니스 로직 완료!)
+        refreshTokenRepository.save(new RefreshToken(member.getUsername(), refreshToken));
 
         return LoginResponse.builder()
                 .memberId(member.getId())
-                .accessToken(token)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .username(member.getUsername())
                 .email(member.getEmail())
                 .nickname(member.getNickname())
                 .role(member.getRole())
                 .build();
+    }
+
+    //토큰 재발급 (RTR 적용)
+    public LoginResponse refreshAccessToken(String refreshToken){
+        // 1. refreshToken으로 유저명, 이메일 추출 및 signature 검증 로직
+        String username = jwtUtil.validateAndGetEmailFromRefreshToken(refreshToken);
+        //2. redis에 저장된 refreshToken이 맞는지 확인
+        com.sleepyproject.sleepy_backend.domain.redis.RefreshToken savedToken = refreshTokenRepository.findById(username).orElseThrow(()-> new IllegalArgumentException("만료되었거나 유효하지 않은 세션입니다."));
+
+        if (!savedToken.getRefreshToken().equals(refreshToken)) {
+            // 프론트엔드 동시성 이슈(React StrictMode 등)로 인해 이전 토큰으로 중복 요청이 온 경우 오탐 방지!
+            if (refreshToken.equals(savedToken.getPreviousRefreshToken())) {
+                Member member = memberRepository.findByUsername(username).orElseThrow(()-> new IllegalArgumentException("존재하지 않는 유저입니다."));
+                String newAccessToken = jwtUtil.generateAccessToken(member.getUsername(), member.getRole().name());
+                // 방금 전 회전된 최신 토큰을 그대로 재반환 (Redis 상태 변경 안함)
+                return LoginResponse.builder()
+                        .accessToken(newAccessToken)
+                        .refreshToken(savedToken.getRefreshToken())
+                        .role(member.getRole())
+                        .memberId(member.getId())
+                        .nickname(member.getNickname())
+                        .build();
+            }
+
+            // 해커가 훔쳐간 토큰으로 재발급 시도하거나, 유저가 옛날 토큰으로 시도하는 경우!
+            refreshTokenRepository.deleteById(username); // 즉시 강제 로그아웃
+            throw new IllegalArgumentException("중복 로그인 또는 토큰 탈취 의심!");
+        }
+
+        //3. 유저 권한 조회를 확인.
+        Member member = memberRepository.findByUsername(username).orElseThrow(()-> new IllegalArgumentException("존재하지 않는 유저입니다."));
+
+        //4. 새로운 accessToken 및 refreshToken 발급 (RTR 적용)
+        String newAccessToken = jwtUtil.generateAccessToken(member.getUsername(), member.getRole().name());
+        String newRefreshToken = jwtUtil.generateRefreshToken(member.getUsername());
+        
+        //5. 새로운 refreshToken을 Redis에 덮어쓰기 저장 (기존 토큰을 previousRefreshToken으로 백업)
+        refreshTokenRepository.save(new com.sleepyproject.sleepy_backend.domain.redis.RefreshToken(member.getUsername(), newRefreshToken, refreshToken));
+
+        //6. LoginResponse에 담아서 반환
+        return LoginResponse.builder()
+                .memberId(member.getId())
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .username(member.getUsername())
+                .email(member.getEmail())
+                .nickname(member.getNickname())
+                .role(member.getRole())
+                .build();
+    }
+
+    public void logout(String accessToken, String username){
+        // 남은 수명만큼 Redis 블랙리스트에 저장
+        blackListedTokenRepository.save(new com.sleepyproject.sleepy_backend.domain.redis.BlackListedToken(accessToken, username));
+        // Redis에서 기존 Refresh Token 파괴
+        refreshTokenRepository.deleteById(username);
     }
 
     public MemberInfo getMyInfo(String username) {

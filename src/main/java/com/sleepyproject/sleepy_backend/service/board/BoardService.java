@@ -57,6 +57,7 @@ public class BoardService {
                 .content(badWordFilter.filter(request.getContent()))
                 .boardType(BoardType.valueOf(request.getBoardType().toUpperCase()))
                 .imageUrl(request.getImageUrl())
+                .thumbnailUrl(request.getThumbnailUrl())
                 .hashtags(request.getHashtags())
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -106,7 +107,7 @@ public class BoardService {
                                 row -> ((Long) row[1]).intValue()
                         ));
         return posts.map(p -> new PostResponse(
-                p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
+                p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(), p.getThumbnailUrl(),
                 p.getMember().getNickname(), p.getViewCount() + postRedisService.getCachedViewCount(p.getId()),
                 p.getLikeCount(),
                 p.getCreatedAt(), p.getMember().getProfileImageUrl(), finalLikedPostIds.contains(p.getId()),
@@ -139,7 +140,7 @@ public class BoardService {
         }
 
         return new PostResponse(
-                post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
+                post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(), post.getThumbnailUrl(),
                 post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
                 commentRepository.countByPostIdAndIsHiddenFalse(post.getId()),
                 post.getPopularityScore(),
@@ -163,7 +164,7 @@ public class BoardService {
         }
 
         return new PostResponse(
-                post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(),
+                post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(), post.getThumbnailUrl(),
                 post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
                 commentRepository.countByPostIdAndIsHiddenFalse(post.getId()),
                 post.getPopularityScore(),
@@ -204,6 +205,7 @@ public class BoardService {
                 badWordFilter.filter(request.getTitle()),
                 badWordFilter.filter(request.getContent()),
                 request.getImageUrl(),
+                request.getThumbnailUrl(),
                 request.getHashtags()
         );
     }
@@ -325,7 +327,7 @@ public class BoardService {
             posts = postRepository.findByMemberUsernameAndBoardTypeNotAndIsHiddenFalseOrderByCreatedAtDesc(username, BoardType.MEDIA, pageable);
         }
         return posts.map(p -> new PostResponse(
-                p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(),
+                p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(), p.getThumbnailUrl(),
                 p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt(), p.getMember().getProfileImageUrl(), false,
                 commentRepository.countByPostIdAndIsHiddenFalse(p.getId()),
                 p.getPopularityScore(),

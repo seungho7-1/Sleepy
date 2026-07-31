@@ -3,6 +3,7 @@ package com.sleepyproject.sleepy_backend.api.board;
 import com.sleepyproject.sleepy_backend.api.board.dto.CommentRequest;
 import com.sleepyproject.sleepy_backend.api.board.dto.PostRequest;
 import com.sleepyproject.sleepy_backend.service.board.BoardService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -22,7 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 public class BoardController {
 
     private final BoardService boardService;
-
     /**
      * 새로운 커뮤니티 게시글을 생성합니다. (인증 필요)
      *
@@ -31,7 +31,7 @@ public class BoardController {
      * @return 생성된 게시글 ID
      */
     @PostMapping("/posts")
-    public ResponseEntity<?> createPost(@RequestBody PostRequest request, Authentication authentication) {
+    public ResponseEntity<?> createPost(@Valid @RequestBody PostRequest request, Authentication authentication) {
         Long postId = boardService.createPost(request, authentication.getName());
         return ResponseEntity.ok(postId);
     }

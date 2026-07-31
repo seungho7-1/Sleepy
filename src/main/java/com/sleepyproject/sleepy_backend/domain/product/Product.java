@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -89,6 +90,7 @@ public class Product {
     private Member seller;
 
     // 태그 양방향 연관관계 (N+1 문제 해결을 위한 지연/즉시 로딩용)
+    @BatchSize(size = 50)
     @OneToMany(mappedBy = "product")
     private List<ProductTag> productTags = new ArrayList<>();
 

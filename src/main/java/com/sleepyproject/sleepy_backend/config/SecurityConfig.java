@@ -1,6 +1,9 @@
 package com.sleepyproject.sleepy_backend.config;
 
+import com.sleepyproject.sleepy_backend.repository.HttpCookieOAuth2AuthorizationRequestRepository;
+import com.sleepyproject.sleepy_backend.repository.redis.BlackListedTokenRepository;
 import com.sleepyproject.sleepy_backend.security.JwtUtil;
+import com.sleepyproject.sleepy_backend.security.oauth2.OAuth2LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,15 +26,16 @@ public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
     private final CustomOAuth2UserService customOAuth2UserService;
-    private final com.sleepyproject.sleepy_backend.security.oauth2.OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
-
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final BlackListedTokenRepository blackListedTokenRepository;
+    private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
 
     /**
      * JWT 인증 필터 빈 등록
      */
     @Bean
     public JwtFilter jwtFilter() {
-        return new JwtFilter(jwtUtil);
+        return new JwtFilter(jwtUtil, blackListedTokenRepository);
     }
 
     /**
@@ -47,7 +51,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
                 .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(auth -> auth
+                                .authorizationRequestRepository(httpCookieOAuth2AuthorizationRequestRepository))
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService)
                         )
@@ -63,33 +70,40 @@ public class SecurityConfig {
                 // URL 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         // 1. 회원가입, 로그인 등 인증 관련 공개 API
-                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/check-username", "/api/auth/check-nickname", "/api/auth/check-email", "/api/auth/seed-admin", "/api/auth/password/**", "/api/auth/profile/**").permitAll()
+                        .requestMatchers("/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh", "/api/auth/check-username", "/api/auth/check-nickname", "/api/auth/check-email", "/api/auth/seed-admin", "/api/auth/password/**", "/api/auth/profile/**").permitAll()
                         .requestMatchers("/api/seller/verify-business-number").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-                        
+
                         // 2. 상품 조회 관련 공개 API (GET만 허가)
                         .requestMatchers(HttpMethod.GET, "/api/products/list", "/api/products/detail/**").permitAll()
-                        
+
                         // 3. 리뷰 조회 관련 공개 API
                         .requestMatchers(HttpMethod.GET, "/api/reviews/product/**").permitAll()
-                        
+
                         // 4. 커뮤니티 조회 관련 공개 API (목록 및 상세조회, 댓글 조회, 조회수 증가)
                         .requestMatchers(HttpMethod.GET, "/api/board/posts", "/api/board/posts/**", "/api/board/comments").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/board/posts/*/view").permitAll()
-                        
+
                         // 5. 정적 리소스 및 Swagger UI 공개 설정
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        
+
                         // 6. 관리자 권한 필요한 API
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        
+
                         // 7. 판매자 권한 필요한 API (상품 등록, 수정, 삭제, 크롤링)
                         .requestMatchers("/api/products/create", "/api/products/update/**", "/api/products/delete/**", "/api/products/crawl").hasRole("SELLER")
-                        
+
                         // 8. 그 외 모든 API는 인증된 회원만 접근 가능
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                            response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
+                        })
                 );
 
         return http.build();

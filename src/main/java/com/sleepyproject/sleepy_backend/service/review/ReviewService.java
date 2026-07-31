@@ -135,12 +135,16 @@ public class ReviewService {
             throw new IllegalArgumentException("이미 신고한 리뷰입니다.");
         }
 
-        // 신고 내역 저장 (어뷰징 방지용)
-        reviewReportRepository.save(ReviewReport.builder()
-                .review(review)
-                .member(reporter)
-                .createdAt(LocalDateTime.now())
-                .build());
+        try {
+            // 신고 내역 저장 (어뷰징 방지용)
+            reviewReportRepository.saveAndFlush(ReviewReport.builder()
+                    .review(review)
+                    .member(reporter)
+                    .createdAt(LocalDateTime.now())
+                    .build());
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("이미 신고한 리뷰입니다.");
+        }
 
         // 글로벌 신고 내역 저장 (관리자 대시보드용)
         reportRepository.save(Report.builder()
@@ -155,8 +159,10 @@ public class ReviewService {
         review.incrementReportCount();
 
         // 누적 3회 이상이면 숨김 처리
-        if (review.getReportCount() >= 3) {
+        if (review.getReportCount() >= 3 && !review.isHidden()) {
             review.hide();
+            // 숨김 처리 후 상품의 리뷰 통계를 재계산 (최적화)
+            syncProductReviewStats(review.getProduct());
         }
     }
 
@@ -188,13 +194,15 @@ public class ReviewService {
      * 상품의 reviewCount와 avgRating을 리뷰 테이블 기준으로 직접 재계산합니다.
      */
     private void syncProductReviewStats(Product product) {
-        List<com.sleepyproject.sleepy_backend.domain.review.Review> reviews =
-                reviewRepository.findAllByProductIdAndIsHiddenFalse(product.getId());
-        int count = reviews.size();
-        double avg = count > 0
-                ? reviews.stream().mapToDouble(r -> r.getRating()).average().orElse(0.0)
-                : 0.0;
-        // 소수점 둘째 자리로 내림
+        List<Object[]> stats = reviewRepository.getReviewStatsByProductId(product.getId());
+        int count = 0;
+        double avg = 0.0;
+        if (!stats.isEmpty() && stats.get(0)[0] != null) {
+            Object[] result = stats.get(0);
+            count = ((Number) result[0]).intValue();
+            avg = ((Number) result[1]).doubleValue();
+        }
+        // 소수점 둘째 자리로 반올림
         avg = Math.round(avg * 10.0) / 10.0;
         product.updateReviewStats(count, avg);
     }

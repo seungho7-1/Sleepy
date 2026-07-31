@@ -21,5 +21,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     
     long countByProductId(Long productId);
 
-    java.util.List<Review> findAllByProductIdAndIsHiddenFalse(Long productId);
+    @Query("SELECT COUNT(r), COALESCE(AVG(r.rating), 0.0) FROM Review r WHERE r.product.id = :productId AND r.isHidden = false")
+    java.util.List<Object[]> getReviewStatsByProductId(@Param("productId") Long productId);
 }

@@ -2,10 +2,14 @@ package com.sleepyproject.sleepy_backend.api.member;
 
 import com.sleepyproject.sleepy_backend.api.member.dto.*;
 import com.sleepyproject.sleepy_backend.api.product.dto.ProductResponse;
+import com.sleepyproject.sleepy_backend.repository.redis.BlackListedTokenRepository;
+import com.sleepyproject.sleepy_backend.security.JwtUtil;
 import com.sleepyproject.sleepy_backend.service.member.MemberService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -23,18 +27,21 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class MemberController {
 
+    private final JwtUtil   jwtUtil;
     private final MemberService memberService;
     private final com.sleepyproject.sleepy_backend.service.seller.SellerApplicationService sellerApplicationService;
     private final com.sleepyproject.sleepy_backend.repository.member.MemberRepository memberRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final BlackListedTokenRepository blackListedTokenRepository;
 
-    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.kakao.client-id:}")
+
+    @Value("${spring.security.oauth2.client.registration.kakao.client-id:}")
     private String kakaoId;
-    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.kakao.client-secret:}")
+    @Value("${spring.security.oauth2.client.registration.kakao.client-secret:}")
     private String kakaoSecret;
-    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.naver.client-id:}")
+    @Value("${spring.security.oauth2.client.registration.naver.client-id:}")
     private String naverId;
-    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.naver.client-secret:}")
+    @Value("${spring.security.oauth2.client.registration.naver.client-secret:}")
     private String naverSecret;
 
     @GetMapping("/debug-secrets")
@@ -75,32 +82,67 @@ public class MemberController {
      * @return 로그인 성공 결과 DTO (JWT 토큰 및 사용자 정보 포함)
      */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request,HttpServletResponse response) {
         LoginResponse loginResult = memberService.login(request);
-        return ResponseEntity.ok(loginResult);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtUtil.createRefreshTokenCookie(loginResult.getRefreshToken()).toString())
+                .body(loginResult); // Access Token은 loginResult 안에 담겨서 JSON으로 응답됨!
     }
 
     /**
      * 로그아웃을 처리하고 세션을 무효화합니다.
      *
      * @param request        HTTP 서블릿 요청
-     * @param response       HTTP 서블릿 응답
      * @param authentication 현재 로그인된 유저 인증 정보
      * @return 성공 메시지
      */
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        if (authentication != null) {
-            new SecurityContextLogoutHandler().logout(request, response, authentication);
+    public ResponseEntity<?> logout(HttpServletRequest request, Authentication authentication) {
+        String header = request.getHeader("Authorization");
+
+        if (header != null && header.startsWith("Bearer ") && authentication != null) {
+            String accessToken = header.substring(7);
+            String username = (String) authentication.getPrincipal();
+
+            // Service한테 블랙리스트 처리 지시
+            memberService.logout(accessToken, username);
         }
-        return ResponseEntity.ok(Map.of("message", "로그아웃 성공"));
+        // 브라우저의 Refresh Token 쿠키 파괴 지시
+        org.springframework.http.ResponseCookie deleteCookie = org.springframework.http.ResponseCookie.from("refreshToken", "")
+                .httpOnly(true).secure(false).path("/").maxAge(0).sameSite("Lax").build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                .body(Map.of("message", "완벽하게 로그아웃 되었습니다."));
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@CookieValue(value = "refreshToken", required = false) String refreshToken) {
+        System.out.println("[REFRESH API] Received refreshToken cookie: " + refreshToken);
+        if (refreshToken == null) {
+            System.out.println("[REFRESH API] Error: No refresh token cookie.");
+            return ResponseEntity.status(401).body(Map.of("error", "리프레시 토큰 쿠키가 없습니다."));
+        }
+        try {
+            LoginResponse loginResult = memberService.refreshAccessToken(refreshToken);
+            System.out.println("[REFRESH API] Success for user: " + loginResult.getUsername());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, jwtUtil.createRefreshTokenCookie(loginResult.getRefreshToken()).toString())
+                    .body(Map.of("accessToken", loginResult.getAccessToken()));
+        } catch (Exception e) {
+            System.out.println("[REFRESH API] Exception during refresh: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+        }
+    }
+
 
     /**
      * 마이페이지에서 내 프로필 정보를 조회합니다. (인증 필요)
      *
      * @param authentication 현재 로그인된 유저 인증 정보
      * @return 로그인된 유저 프로필 정보 DTO
+     *
      */
     @GetMapping("/me")
     public ResponseEntity<?> me(Authentication authentication) {
@@ -325,4 +367,7 @@ public class MemberController {
         private String snsUrls;
         private String businessNumber;
     }
+
+
+
 }

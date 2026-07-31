@@ -11,5 +11,6 @@ public class PostRequest {
     private String content;
     private String boardType; // FREE, QNA, NOTICE, MEDIA
     private String imageUrl;
+    private String thumbnailUrl;
     private List<String> hashtags;
 }

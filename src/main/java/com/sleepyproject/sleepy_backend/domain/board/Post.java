@@ -39,11 +39,14 @@ public class Post {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    @Column(columnDefinition = "TEXT")
+    private String imageUrl;
+
+    private String thumbnailUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private BoardType boardType;
-
-    private String imageUrl; // 사진/영상 경로
 
     private int viewCount = 0;
     private int likeCount = 0;
@@ -57,18 +60,20 @@ public class Post {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean isHidden = false;
 
+    @BatchSize(size = 50)
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "post_hashtags", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "hashtag")
     private List<String> hashtags = new ArrayList<>();
 
     @Builder
-    public Post(Member member, String title, String content, BoardType boardType, String imageUrl, LocalDateTime createdAt, List<String> hashtags) {
+    public Post(Member member, String title, String content, BoardType boardType, String imageUrl, String thumbnailUrl, LocalDateTime createdAt, List<String> hashtags) {
         this.member = member;
         this.title = title;
         this.content = content;
         this.boardType = boardType;
         this.imageUrl = imageUrl;
+        this.thumbnailUrl = thumbnailUrl;
         this.createdAt = createdAt;
         if (hashtags != null) {
             this.hashtags.addAll(hashtags);
@@ -126,10 +131,11 @@ public class Post {
         this.popularityScore = baseScore / Math.pow(Math.max(hoursPassed, 0) + 2, 1.5);
     }
 
-    public void update(String title, String content, String imageUrl, java.util.List<String> tags) {
+    public void update(String title, String content, String imageUrl, String thumbnailUrl, java.util.List<String> tags) {
         this.title = title;
         this.content = content;
         this.imageUrl = imageUrl;
+        this.thumbnailUrl = thumbnailUrl;
         if (tags != null) {
             this.hashtags.clear();
             this.hashtags.addAll(tags);

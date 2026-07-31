@@ -1,5 +1,6 @@
 package com.sleepyproject.sleepy_backend.config;
 
+import com.sleepyproject.sleepy_backend.repository.redis.BlackListedTokenRepository;
 import com.sleepyproject.sleepy_backend.security.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -19,7 +20,7 @@ import java.util.List;
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-
+    private final BlackListedTokenRepository blackListedTokenRepository;
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -31,7 +32,13 @@ public class JwtFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             try {
                 String token = header.substring(7);
-                String email = jwtUtil.validateAndGetEmail(token);
+                //Redis 블랙리스트에 등록된 토큰(로그아웃 됨)인지 검사
+                if (blackListedTokenRepository.existsById(token)) {
+                    System.out.println("로그아웃된(블랙리스트) Access Token 접근 차단!");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                String email = jwtUtil.validateAndGetEmailFromAccessToken(token);
                 String role = jwtUtil.validateAndGetRole(token);
                 System.out.println("email = " + email);
 

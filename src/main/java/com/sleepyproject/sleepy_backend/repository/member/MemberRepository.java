@@ -4,6 +4,7 @@ import com.sleepyproject.sleepy_backend.domain.member.Member;
 import com.sleepyproject.sleepy_backend.domain.member.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,7 +35,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     boolean existsByNickname(String nickname);
 
-    long countByCreatedAtAfter(java.time.LocalDateTime date);
+    long countByCreatedAtAfter(LocalDateTime date);
 
     /** 특정 역할(Role)의 회원 목록을 조회합니다. (ex. 관리자 전체 목록) */
     List<Member> findByRole(Role role);
