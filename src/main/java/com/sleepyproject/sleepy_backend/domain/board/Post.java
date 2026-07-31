@@ -62,7 +62,7 @@ public class Post {
 
     @BatchSize(size = 50)
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "post_hashtags", joinColumns = @JoinColumn(name = "post_id"))
+    @CollectionTable(name = "post_tags", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "hashtag")
     private List<String> hashtags = new ArrayList<>();
 
