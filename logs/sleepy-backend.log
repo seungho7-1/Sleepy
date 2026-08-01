@@ -2154,3 +2154,9 @@ org.springframework.security.access.AccessDeniedException: Access Denied
 2026-08-01 08:50:40.825 [http-nio-8383-exec-7] TRACE o.s.s.w.h.writers.HstsHeaderWriter - Not injecting HSTS header since it did not match request to [Is Secure]
 2026-08-01 08:55:00.012 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 스케줄러 시작 ====
 2026-08-01 08:55:00.190 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 완료 ====
+2026-08-01 09:00:00.033 [scheduling-1] INFO  c.s.s.s.board.PostScoreScheduler - Starting scheduled task to update Post Popularity Scores...
+2026-08-01 09:00:01.151 [scheduling-1] INFO  c.s.s.s.board.PostScoreScheduler - Finished updating popularity scores for 3335 posts.
+2026-08-01 09:00:01.473 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 스케줄러 시작 ====
+2026-08-01 09:00:01.715 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 완료 ====
+2026-08-01 09:05:00.008 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 스케줄러 시작 ====
+2026-08-01 09:05:00.163 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 완료 ====
