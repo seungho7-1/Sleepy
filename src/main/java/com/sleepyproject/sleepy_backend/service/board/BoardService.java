@@ -17,6 +17,7 @@ import com.sleepyproject.sleepy_backend.repository.board.PostRepository;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import com.sleepyproject.sleepy_backend.repository.review.ReviewRepository;
 import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
+import com.sleepyproject.sleepy_backend.service.upload.VideoCompressionService;
 import com.sleepyproject.sleepy_backend.util.BadWordFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -45,12 +46,15 @@ public class BoardService {
     private final NotificationService notificationService;
     private final PostRedisService postRedisService;
     private final BadWordFilter badWordFilter;
+    private final VideoCompressionService videoCompressionService;
 
     @Transactional
     public Long createPost(PostRequest request, String username) {
+        //로그인한 유저가 맞는지 아닌지 확인.
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
+        //새로운 게시글을 만든 빌더패턴을 이용
         Post post = Post.builder()
                 .member(member)
                 .title(badWordFilter.filter(request.getTitle()))
@@ -62,7 +66,16 @@ public class BoardService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        return postRepository.save(post).getId();
+        //db에 저장
+        Post savedPost = postRepository.save(post);
+
+        //이미지 uirl이 없다면?
+        if (request.getImageUrl() != null) {
+            videoCompressionService.compressVideoAsync(request.getImageUrl());
+        }
+
+        //post_id를 반환
+        return savedPost.getId();
     }
 
     @Transactional(readOnly = true)
@@ -201,6 +214,10 @@ public class BoardService {
         if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("수정 권한이 없습니다.");
         }
+        if (request.getImageUrl() != null && !request.getImageUrl().equals(post.getImageUrl())) {
+            videoCompressionService.compressVideoAsync(request.getImageUrl());
+        }
+
         post.update(
                 badWordFilter.filter(request.getTitle()),
                 badWordFilter.filter(request.getContent()),
@@ -231,6 +248,7 @@ public class BoardService {
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
+        //댓글 빌더패턴으로 생성
         Comment.CommentBuilder builder = Comment.builder()
                 .member(member)
                 .content(badWordFilter.filter(request.getContent()))

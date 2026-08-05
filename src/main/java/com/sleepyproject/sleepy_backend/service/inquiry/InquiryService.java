@@ -1,6 +1,6 @@
 package com.sleepyproject.sleepy_backend.service.inquiry;
 
-import com.sleepyproject.sleepy_backend.api.dto.InquiryDto;
+import com.sleepyproject.sleepy_backend.api.inquiry.dto.InquiryDto;
 import com.sleepyproject.sleepy_backend.domain.inquiry.Inquiry;
 import com.sleepyproject.sleepy_backend.domain.member.Member;
 import com.sleepyproject.sleepy_backend.repository.inquiry.InquiryRepository;
@@ -49,6 +49,7 @@ public class InquiryService {
         return InquiryDto.Response.fromEntity(savedInquiry);
     }
 
+    // 해당 유저 문의목록 가져오기
     @Transactional(readOnly = true)
     public List<InquiryDto.Response> getMyInquiries(String username) {
         Member member = memberRepository.findByUsername(username)

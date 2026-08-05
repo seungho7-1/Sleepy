@@ -1,6 +1,7 @@
 package com.sleepyproject.sleepy_backend.repository.board;
 
 import com.sleepyproject.sleepy_backend.domain.board.Comment;
+import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
@@ -19,7 +20,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByMemberUsernameAndIsHiddenFalseOrderByCreatedAtDesc(String username);
 
     @EntityGraph(attributePaths = {"member", "post", "review"})
-    org.springframework.data.domain.Page<Comment> findByMemberUsernameAndIsHiddenFalseOrderByCreatedAtDesc(String username, org.springframework.data.domain.Pageable pageable);
+    Page<Comment> findByMemberUsernameAndIsHiddenFalseOrderByCreatedAtDesc(String username, org.springframework.data.domain.Pageable pageable);
     
     int countByPostIdAndIsHiddenFalse(Long postId);
     

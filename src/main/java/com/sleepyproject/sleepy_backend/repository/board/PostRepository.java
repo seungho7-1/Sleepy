@@ -33,7 +33,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             "LOWER(p.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(c.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(h) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    //boardtype으로 검색을한다.
+
+    //게시판 타입 + 검색어로 게시글을 조회
     Page<Post> findByBoardTypeInAndKeyword(@Param("boardTypes") List<BoardType> boardTypes, @Param("keyword") String keyword, Pageable pageable);
 
     @EntityGraph(attributePaths = {"member"})
