@@ -20,5 +20,6 @@ public class PostRequest {
 
     private String imageUrl;
     private String thumbnailUrl;
-    private List<String> hashtags;
+    private List<String> hashtags; // 해시태그 목록 추가
+    private Boolean isPinned; // 상단 고정 여부 (관리자용)
 }

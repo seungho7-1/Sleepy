@@ -13,6 +13,9 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
+    @EntityGraph(attributePaths = {"member"})
+    List<Post> findByIsPinnedTrueAndIsHiddenFalseOrderByCreatedAtDesc();
+
     Page<Post> findByBoardTypeAndIsHiddenFalse(BoardType boardType, Pageable pageable);
 
     @EntityGraph(attributePaths = {"member"})

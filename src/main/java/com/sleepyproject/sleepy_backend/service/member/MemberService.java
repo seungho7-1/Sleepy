@@ -534,7 +534,7 @@ public class MemberService {
     }
 
     @Transactional
-    public void updateSellerProfileFields(String username, String shopName, String introduction, String youtubeUrl, String instagramUrl, String facebookUrl, String tiktokUrl) {
+    public void updateSellerProfileFields(String username, String shopName, String siteUrl, String introduction, String youtubeUrl, String instagramUrl, String facebookUrl, String tiktokUrl) {
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
@@ -542,7 +542,7 @@ public class MemberService {
             throw new IllegalArgumentException("판매자만 프로필을 수정할 수 있습니다.");
         }
 
-        member.updateSellerProfile(shopName, introduction, youtubeUrl, instagramUrl, facebookUrl, tiktokUrl);
+        member.updateSellerProfile(shopName, siteUrl, introduction, youtubeUrl, instagramUrl, facebookUrl, tiktokUrl);
         memberRepository.save(member);
     }
 }

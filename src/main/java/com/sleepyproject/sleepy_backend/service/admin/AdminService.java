@@ -142,16 +142,28 @@ public class AdminService {
                 reviewRepository.findById(report.getTargetId()).ifPresent(Review::hide);
             }
             
+            Member author = getAuthorOfReportTarget(report);
+            if ("BLIND".equals(action) && author != null) {
+                String targetName = report.getTargetType() == ReportTargetType.POST ? "게시글" :
+                                   report.getTargetType() == ReportTargetType.COMMENT ? "댓글" :
+                                   report.getTargetType() == ReportTargetType.REVIEW ? "리뷰" : "상품";
+                notificationService.createNotificationByMember(
+                        author,
+                        NotificationType.SYSTEM_ALERT,
+                        "신고 처리 결과 회원님의 " + targetName + "이(가) 블라인드(숨김) 처리되었습니다.",
+                        "/mypage"
+                );
+            }
+
             // Suspend the author if action is SUSPEND_USER
             if ("SUSPEND_USER".equals(action)) {
-                Member author = getAuthorOfReportTarget(report);
                 if (author != null) {
                     author.updateStatus("SUSPENDED");
                     notificationService.createNotificationByMember(
                             author,
                             NotificationType.SYSTEM_ALERT,
                             "신고 조치로 인해 계정이 정지되었습니다.",
-                            "/my/profile"
+                            "/mypage"
                     );
                 }
             }

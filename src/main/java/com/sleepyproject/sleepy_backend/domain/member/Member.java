@@ -130,8 +130,9 @@ public class Member {
         this.status = status;
     }
 
-    public void updateSellerProfile(String shopName, String introduction, String youtubeUrl, String instagramUrl, String facebookUrl, String tiktokUrl) {
+    public void updateSellerProfile(String shopName, String siteUrl, String introduction, String youtubeUrl, String instagramUrl, String facebookUrl, String tiktokUrl) {
         if (shopName != null) this.shopName = shopName;
+        if (siteUrl != null) this.siteUrl = siteUrl;
         this.introduction = introduction;
         this.youtubeUrl = youtubeUrl;
         this.instagramUrl = instagramUrl;

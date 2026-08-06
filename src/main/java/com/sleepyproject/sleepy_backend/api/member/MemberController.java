@@ -348,13 +348,14 @@ public class MemberController {
     @PutMapping("/sellers/profile")
     public ResponseEntity<?> updateSellerProfile(@RequestBody SellerProfileUpdateRequest request, Authentication authentication) {
         String username = (String) authentication.getPrincipal();
-        memberService.updateSellerProfileFields(username, request.getShopName(), request.getIntroduction(), request.getYoutubeUrl(), request.getInstagramUrl(), request.getFacebookUrl(), request.getTiktokUrl());
+        memberService.updateSellerProfileFields(username, request.getShopName(), request.getSiteUrl(), request.getIntroduction(), request.getYoutubeUrl(), request.getInstagramUrl(), request.getFacebookUrl(), request.getTiktokUrl());
         return ResponseEntity.ok(Map.of("message", "프로필이 성공적으로 업데이트되었습니다."));
     }
 
     @lombok.Data
     public static class SellerProfileUpdateRequest {
         private String shopName;
+        private String siteUrl;
         private String introduction;
         private String youtubeUrl;
         private String instagramUrl;

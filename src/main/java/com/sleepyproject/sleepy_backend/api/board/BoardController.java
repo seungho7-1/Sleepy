@@ -55,7 +55,9 @@ public class BoardController {
             @PageableDefault(size = 10) Pageable pageable,
             Authentication authentication) {
         String username = authentication != null ? authentication.getName() : null;
-        return ResponseEntity.ok(boardService.getPosts(type, keyword, pageable, username));
+        org.springframework.data.domain.Sort newSort = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "isPinned").and(pageable.getSort());
+        org.springframework.data.domain.Pageable newPageable = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), newSort);
+        return ResponseEntity.ok(boardService.getPosts(type, keyword, newPageable, username));
     }
 
     /**

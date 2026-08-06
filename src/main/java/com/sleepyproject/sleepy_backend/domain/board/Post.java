@@ -60,6 +60,9 @@ public class Post {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean isHidden = false;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isPinned = false;
+
     @BatchSize(size = 50)
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "post_tags", joinColumns = @JoinColumn(name = "post_id"))
@@ -67,7 +70,7 @@ public class Post {
     private List<String> hashtags = new ArrayList<>();
 
     @Builder
-    public Post(Member member, String title, String content, BoardType boardType, String imageUrl, String thumbnailUrl, LocalDateTime createdAt, List<String> hashtags) {
+    public Post(Member member, String title, String content, BoardType boardType, String imageUrl, String thumbnailUrl, LocalDateTime createdAt, List<String> hashtags, boolean isPinned) {
         this.member = member;
         this.title = title;
         this.content = content;
@@ -75,6 +78,7 @@ public class Post {
         this.imageUrl = imageUrl;
         this.thumbnailUrl = thumbnailUrl;
         this.createdAt = createdAt;
+        this.isPinned = isPinned;
         if (hashtags != null) {
             this.hashtags.addAll(hashtags);
         }
@@ -131,11 +135,12 @@ public class Post {
         this.popularityScore = baseScore / Math.pow(Math.max(hoursPassed, 0) + 2, 1.5);
     }
 
-    public void update(String title, String content, String imageUrl, String thumbnailUrl, java.util.List<String> tags) {
+    public void update(String title, String content, String imageUrl, String thumbnailUrl, java.util.List<String> tags, boolean isPinned) {
         this.title = title;
         this.content = content;
         this.imageUrl = imageUrl;
         this.thumbnailUrl = thumbnailUrl;
+        this.isPinned = isPinned;
         if (tags != null) {
             this.hashtags.clear();
             this.hashtags.addAll(tags);

@@ -37,5 +37,15 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 """)
     List<Object[]> countCommentsByPostIds(@Param("postIds") List<Long> postIds);
 
+    @Query("""
+    SELECT DISTINCT c.post.id
+    FROM Comment c
+    WHERE c.member = :member
+      AND c.post.id IN :postIds
+      AND c.isHidden = false
+    """)
+    List<Long> findPostIdsByMemberAndPostIdIn(@Param("member") com.sleepyproject.sleepy_backend.domain.member.Member member, @Param("postIds") List<Long> postIds);
+
+    boolean existsByMemberAndPostAndIsHiddenFalse(com.sleepyproject.sleepy_backend.domain.member.Member member, com.sleepyproject.sleepy_backend.domain.board.Post post);
 
 }

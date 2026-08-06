@@ -155,6 +155,13 @@ public class ReviewService {
                 .status(ReportStatus.PENDING)
                 .build());
 
+        // [관리자 알림] 신고 접수 알림
+        notificationService.notifyAllAdmins(
+                NotificationType.NEW_REPORT,
+                "새로운 리뷰 신고가 접수되었습니다. (REVIEW #" + review.getId() + ")",
+                "/admin/reports"
+        );
+
         // 신고 횟수 증가
         review.incrementReportCount();
 

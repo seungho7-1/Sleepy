@@ -64,6 +64,7 @@ public class BoardService {
                 .thumbnailUrl(request.getThumbnailUrl())
                 .hashtags(request.getHashtags())
                 .createdAt(LocalDateTime.now())
+                .isPinned(request.getIsPinned() != null ? request.getIsPinned() : false)
                 .build();
 
         //db에 저장
@@ -83,7 +84,7 @@ public class BoardService {
         Page<Post> posts;
         if ("ALL".equalsIgnoreCase(boardTypeStr)) {
             posts = postRepository.findByBoardTypeInAndKeyword(
-                    asList(BoardType.FREE, BoardType.QNA, BoardType.REVIEW, BoardType.INFO),
+                    asList(BoardType.ALL, BoardType.FREE, BoardType.QNA, BoardType.REVIEW, BoardType.INFO),
                     keyword, pageable);
         } else {
             BoardType type;
@@ -95,14 +96,46 @@ public class BoardService {
             posts = postRepository.findByBoardTypeAndKeyword(type, keyword, pageable);
         }
 
+        List<Post> content = new java.util.ArrayList<>(posts.getContent());
+        List<Post> unpinned = content.stream()
+                .filter(p -> !p.isPinned())
+                .toList();
+
+        List<Post> sortedContent = new java.util.ArrayList<>();
+        
+        if (pageable.getPageNumber() == 0 && !"NOTICE".equalsIgnoreCase(boardTypeStr) && !"MEDIA".equalsIgnoreCase(boardTypeStr)) {
+            List<Post> globalPinned = postRepository.findByIsPinnedTrueAndIsHiddenFalseOrderByCreatedAtDesc().stream()
+                    .filter(p -> p.getBoardType() != BoardType.NOTICE && p.getBoardType() != BoardType.MEDIA)
+                    .toList();
+            sortedContent.addAll(globalPinned);
+        } else if ("NOTICE".equalsIgnoreCase(boardTypeStr) || "MEDIA".equalsIgnoreCase(boardTypeStr)) {
+            List<Post> localPinned = content.stream()
+                    .filter(Post::isPinned)
+                    .sorted(java.util.Comparator.comparing(Post::getCreatedAt).reversed())
+                    .toList();
+            sortedContent.addAll(localPinned);
+        }
+
+        sortedContent.addAll(unpinned);
+
+        posts = new org.springframework.data.domain.PageImpl<>(sortedContent, pageable, posts.getTotalElements());
+
         List<Long> likedPostIds = new ArrayList<>();
         if (username != null) {
             Member member = memberRepository.findByUsername(username).orElse(null);
             if (member != null) {
                 List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
                 if (!postIds.isEmpty()) {
-                    likedPostIds = postLikeRepository.findByMemberAndPostIdIn(member, postIds)
+                    List<Long> dbLiked = postLikeRepository.findByMemberAndPostIdIn(member, postIds)
                             .stream().map(pl -> pl.getPost().getId()).collect(Collectors.toList());
+                    likedPostIds.addAll(dbLiked);
+                    for (Long pId : postIds) {
+                        if (postRedisService.isLikedByUser(pId, com.sleepyproject.sleepy_backend.domain.like.TargetType.POST, username)) {
+                            if (!likedPostIds.contains(pId)) {
+                                likedPostIds.add(pId);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -124,8 +157,10 @@ public class BoardService {
                 p.getMember().getNickname(), p.getViewCount() + postRedisService.getCachedViewCount(p.getId()),
                 p.getLikeCount(),
                 p.getCreatedAt(), p.getMember().getProfileImageUrl(), finalLikedPostIds.contains(p.getId()),
+                false, // isCommented
                 commentCountMap.getOrDefault(p.getId(), 0),
                 p.getPopularityScore(),
+                p.isPinned(),
                 p.getHashtags()
         ));
     }
@@ -140,7 +175,8 @@ public class BoardService {
         if (username != null) {
             Member member = memberRepository.findByUsername(username).orElse(null);
             if (member != null) {
-                isLiked = postLikeRepository.existsByMemberAndPost(member, post);
+                isLiked = postRedisService.isLikedByUser(post.getId(), com.sleepyproject.sleepy_backend.domain.like.TargetType.POST, username)
+                        || postLikeRepository.existsByMemberAndPost(member, post);
                 isAdmin = member.getRole() == com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN;
             }
         }
@@ -155,8 +191,10 @@ public class BoardService {
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(), post.getThumbnailUrl(),
                 post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
+                false, // isCommented
                 commentRepository.countByPostIdAndIsHiddenFalse(post.getId()),
                 post.getPopularityScore(),
+                post.isPinned(),
                 post.getHashtags()
         );
     }
@@ -179,8 +217,10 @@ public class BoardService {
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(), post.getThumbnailUrl(),
                 post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
+                false, // isCommented
                 commentRepository.countByPostIdAndIsHiddenFalse(post.getId()),
                 post.getPopularityScore(),
+                post.isPinned(),
                 post.getHashtags()
         );
     }
@@ -223,7 +263,8 @@ public class BoardService {
                 badWordFilter.filter(request.getContent()),
                 request.getImageUrl(),
                 request.getThumbnailUrl(),
-                request.getHashtags()
+                request.getHashtags(),
+                request.getIsPinned() != null ? request.getIsPinned() : false
         );
     }
 
@@ -352,8 +393,10 @@ public class BoardService {
         return posts.map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(), p.getThumbnailUrl(),
                 p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt(), p.getMember().getProfileImageUrl(), false,
+                false, // isCommented
                 commentRepository.countByPostIdAndIsHiddenFalse(p.getId()),
                 p.getPopularityScore(),
+                p.isPinned(),
                 p.getHashtags()
         ));
     }
