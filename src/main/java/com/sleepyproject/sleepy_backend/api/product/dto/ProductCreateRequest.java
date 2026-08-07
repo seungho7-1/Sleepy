@@ -41,7 +41,7 @@ public class ProductCreateRequest {
     
     private List<String> tags; // 태그
 
-    private String category; // 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY)
+    private String category; // 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY, WAKPPU)
 
     private String videoUrl; // 비디오 주소
     private String videoType; // 비디오 타입 (FILE, LINK, NONE)

@@ -21,6 +21,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final BlackListedTokenRepository blackListedTokenRepository;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtFilter.class);
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -34,13 +35,13 @@ public class JwtFilter extends OncePerRequestFilter {
                 String token = header.substring(7);
                 //Redis 블랙리스트에 등록된 토큰(로그아웃 됨)인지 검사
                 if (blackListedTokenRepository.existsById(token)) {
-                    System.out.println("로그아웃된(블랙리스트) Access Token 접근 차단!");
+                    log.warn("Blocked access with blacklisted token");
                     filterChain.doFilter(request, response);
                     return;
                 }
                 String email = jwtUtil.validateAndGetEmailFromAccessToken(token);
                 String role = jwtUtil.validateAndGetRole(token);
-                System.out.println("email = " + email);
+                log.debug("JWT authenticated user: {}", email);
 
                 //SecurityContext에 저장
                 List<GrantedAuthority> authorities =
@@ -51,8 +52,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } catch (Exception e) {
-                // 토큰 검증 실패 시 로그만 남기고 다음 필터로 진행 (인증되지 않은 상태로 처리)
-                System.out.println("JWT Token validation failed: " + e.getMessage());
+                log.debug("JWT token validation failed: {}", e.getMessage());
             }
         }
 

@@ -51,7 +51,7 @@ public class ProductResponse {
     private List<String> imageUrls; // 최대 5개 이미지 리스트
     private List<String> descriptionImageUrls; // 상세 설명 이미지 URL 목록
     
-    private String category; // 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY)
+    private String category; // 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY, WAKPPU)
     
     private long reviewCount; // 리뷰 수
     private double avgRating; // 평균 별점

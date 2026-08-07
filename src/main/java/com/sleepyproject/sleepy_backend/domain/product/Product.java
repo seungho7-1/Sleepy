@@ -57,7 +57,7 @@ public class Product {
     
     private LocalDate releaseDate; // 출시일
 
-    // 상품 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY)
+    // 상품 카테고리 (SLIME, SLANGY, MALLANGI, SQUISHY, WAKPPU)
     private String category;
 
     // 상품 등록 시간

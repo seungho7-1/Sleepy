@@ -102,8 +102,15 @@ public class BoardService {
                 .toList();
 
         List<Post> sortedContent = new java.util.ArrayList<>();
-        
-        if (pageable.getPageNumber() == 0 && !"NOTICE".equalsIgnoreCase(boardTypeStr) && !"MEDIA".equalsIgnoreCase(boardTypeStr)) {
+
+        if (pageable.getPageNumber() == 0 && keyword.isBlank()
+                && !"NOTICE".equalsIgnoreCase(boardTypeStr) && !"MEDIA".equalsIgnoreCase(boardTypeStr)) {
+            // 공지사항(NOTICE + isPinned=true) 먼저 상단 고정
+            List<Post> pinnedNotices = postRepository.findByIsPinnedTrueAndIsHiddenFalseOrderByCreatedAtDesc().stream()
+                    .filter(p -> p.getBoardType() == BoardType.NOTICE)
+                    .toList();
+            sortedContent.addAll(pinnedNotices);
+            // 그 외 isPinned된 일반 글도 추가
             List<Post> globalPinned = postRepository.findByIsPinnedTrueAndIsHiddenFalseOrderByCreatedAtDesc().stream()
                     .filter(p -> p.getBoardType() != BoardType.NOTICE && p.getBoardType() != BoardType.MEDIA)
                     .toList();
@@ -154,10 +161,11 @@ public class BoardService {
                         ));
         return posts.map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(), p.getThumbnailUrl(),
-                p.getMember().getNickname(), p.getViewCount() + postRedisService.getCachedViewCount(p.getId()),
+                p.getMember().getNickname(), "ROLE_" + p.getMember().getRole().name(),
+                p.getViewCount() + postRedisService.getCachedViewCount(p.getId()),
                 p.getLikeCount(),
                 p.getCreatedAt(), p.getMember().getProfileImageUrl(), finalLikedPostIds.contains(p.getId()),
-                false, // isCommented
+                false,
                 commentCountMap.getOrDefault(p.getId(), 0),
                 p.getPopularityScore(),
                 p.isPinned(),
@@ -190,8 +198,9 @@ public class BoardService {
 
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(), post.getThumbnailUrl(),
-                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
-                false, // isCommented
+                post.getMember().getNickname(), "ROLE_" + post.getMember().getRole().name(),
+                post.getViewCount() + postRedisService.getCachedViewCount(post.getId()), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
+                false,
                 commentRepository.countByPostIdAndIsHiddenFalse(post.getId()),
                 post.getPopularityScore(),
                 post.isPinned(),
@@ -216,8 +225,9 @@ public class BoardService {
 
         return new PostResponse(
                 post.getId(), post.getTitle(), post.getContent(), post.getBoardType().name(), post.getImageUrl(), post.getThumbnailUrl(),
-                post.getMember().getNickname(), post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
-                false, // isCommented
+                post.getMember().getNickname(), "ROLE_" + post.getMember().getRole().name(),
+                post.getViewCount() + postRedisService.getCachedViewCount(postId), post.getLikeCount(), post.getCreatedAt(), post.getMember().getProfileImageUrl(), isLiked,
+                false,
                 commentRepository.countByPostIdAndIsHiddenFalse(post.getId()),
                 post.getPopularityScore(),
                 post.isPinned(),
@@ -304,6 +314,10 @@ public class BoardService {
         if ("POST".equalsIgnoreCase(request.getTargetType())) {
             Post post = postRepository.findById(request.getTargetId())
                     .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+            // 공지사항 게시글에는 댓글 등록 불가
+            if (post.getBoardType() == BoardType.NOTICE) {
+                throw new IllegalArgumentException("공지사항에는 댓글을 작성할 수 없습니다.");
+            }
             builder.post(post);
         } else if ("REVIEW".equalsIgnoreCase(request.getTargetType())) {
             Review review = reviewRepository.findById(request.getTargetId())
@@ -392,8 +406,9 @@ public class BoardService {
         }
         return posts.map(p -> new PostResponse(
                 p.getId(), p.getTitle(), p.getContent(), p.getBoardType().name(), p.getImageUrl(), p.getThumbnailUrl(),
-                p.getMember().getNickname(), p.getViewCount(), p.getLikeCount(), p.getCreatedAt(), p.getMember().getProfileImageUrl(), false,
-                false, // isCommented
+                p.getMember().getNickname(), "ROLE_" + p.getMember().getRole().name(),
+                p.getViewCount(), p.getLikeCount(), p.getCreatedAt(), p.getMember().getProfileImageUrl(), false,
+                false,
                 commentRepository.countByPostIdAndIsHiddenFalse(p.getId()),
                 p.getPopularityScore(),
                 p.isPinned(),
@@ -439,7 +454,10 @@ public class BoardService {
     public void updateComment(Long commentId, CommentRequest request, String username) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
-        if (!comment.getMember().getUsername().equalsIgnoreCase(username)) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        if (!comment.getMember().getUsername().equalsIgnoreCase(username)
+                && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("댓글 수정 권한이 없습니다.");
         }
         comment.updateContent(badWordFilter.filter(request.getContent()));
@@ -449,7 +467,10 @@ public class BoardService {
     public void deleteComment(Long commentId, String username) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
-        if (!comment.getMember().getUsername().equalsIgnoreCase(username)) {
+        Member member = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        if (!comment.getMember().getUsername().equalsIgnoreCase(username)
+                && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("댓글 삭제 권한이 없습니다.");
         }
         // 게시글 댓글 수 동기화

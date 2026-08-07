@@ -18,18 +18,19 @@ public class PostResponse {
     private String imageUrl;
     private String thumbnailUrl;
     private String nickname;
+    private String authorRole; // 작성자 역할 (ROLE_USER, ROLE_ADMIN 등)
     private int viewCount;
     private int likeCount;
     private LocalDateTime createdAt;
     private String profileImageUrl;
     @com.fasterxml.jackson.annotation.JsonProperty("isLiked")
-    private boolean isLiked; // 현재 유저의 좋아요 여부
+    private boolean isLiked;
     @com.fasterxml.jackson.annotation.JsonProperty("isCommented")
-    private boolean isCommented; // 현재 유저의 댓글 여부
-    private int commentCount; // 댓글 수
-    private double popularityScore; // 인기 점수
+    private boolean isCommented;
+    private int commentCount;
+    private double popularityScore;
     @com.fasterxml.jackson.annotation.JsonProperty("isPinned")
-    private boolean isPinned; // 상단 고정 여부
+    private boolean isPinned;
     private List<String> hashtags;
 
     public boolean getIsPinned() {

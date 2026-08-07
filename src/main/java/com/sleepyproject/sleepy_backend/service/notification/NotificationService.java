@@ -134,7 +134,7 @@ public class NotificationService {
                 notification.getMessage().replace("\"", "\\\""),
                 notification.getRelatedUrl() != null ? notification.getRelatedUrl() : "",
                 notification.isRead(),
-                notification.getCreatedAt().toEpochSecond(java.time.ZoneOffset.UTC) * 1000
+                notification.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
             );
 
             java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
