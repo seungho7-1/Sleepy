@@ -329,9 +329,9 @@ public class BoardService {
 
         Comment savedComment = commentRepository.save(builder.build());
 
-        // 게시글 댓글 수 동기화
+        // 게시글 댓글 수 원자적 증가 (Race Condition 방지)
         if (savedComment.getPost() != null) {
-            savedComment.getPost().incrementCommentCount();
+            postRepository.incrementCommentCount(savedComment.getPost().getId());
         }
 
         if (savedComment.getParent() != null) {
@@ -473,9 +473,9 @@ public class BoardService {
                 && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("댓글 삭제 권한이 없습니다.");
         }
-        // 게시글 댓글 수 동기화
+        // 게시글 댓글 수 원자적 감소 (Race Condition 방지)
         if (comment.getPost() != null) {
-            comment.getPost().decrementCommentCount();
+            postRepository.decrementCommentCount(comment.getPost().getId());
         }
         commentRepository.delete(comment);
     }

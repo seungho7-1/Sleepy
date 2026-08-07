@@ -123,21 +123,16 @@ public class MemberController {
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(@CookieValue(value = "refreshToken", required = false) String refreshToken) {
-        System.out.println("[REFRESH API] Received refreshToken cookie: " + refreshToken);
         if (refreshToken == null) {
-            System.out.println("[REFRESH API] Error: No refresh token cookie.");
             return ResponseEntity.status(401).body(Map.of("error", "리프레시 토큰 쿠키가 없습니다."));
         }
         try {
             LoginResponse loginResult = memberService.refreshAccessToken(refreshToken);
-            System.out.println("[REFRESH API] Success for user: " + loginResult.getUsername());
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, jwtUtil.createRefreshTokenCookie(loginResult.getRefreshToken()).toString())
                     .body(Map.of("accessToken", loginResult.getAccessToken()));
         } catch (Exception e) {
-            System.out.println("[REFRESH API] Exception during refresh: " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(401).body(Map.of("error", "세션이 만료되었습니다. 다시 로그인해 주세요."));
         }
     }
 

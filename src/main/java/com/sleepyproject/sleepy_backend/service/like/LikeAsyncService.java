@@ -39,28 +39,22 @@ public class LikeAsyncService {
                     .targetType(targetType)
                     .build());
 
+            // 원자적 UPDATE 쿼리 사용 → Race Condition 방지
             if (targetType == TargetType.POST) {
-                postRepository.findById(targetId)
-                        .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."))
-                        .incrementLikeCount();
+                postRepository.incrementLikeCount(targetId);
             } else {
-                reviewRepository.findById(targetId)
-                        .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."))
-                        .incrementLikeCount();
+                reviewRepository.incrementLikeCount(targetId);
             }
         }
         // 3. Redis가 알려준 isLiked가 false인데, DB에는 데이터가 존재한다면 -> [좋아요 취소]
         else if (!isLiked && existing.isPresent()) {
             likeRepository.delete(existing.get());
 
+            // 원자적 UPDATE 쿼리 사용 → Race Condition 방지
             if (targetType == TargetType.POST) {
-                postRepository.findById(targetId)
-                        .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."))
-                        .decrementLikeCount();
+                postRepository.decrementLikeCount(targetId);
             } else {
-                reviewRepository.findById(targetId)
-                        .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."))
-                        .decrementLikeCount();
+                reviewRepository.decrementLikeCount(targetId);
             }
         }
         // 그 외의 상태 (이미 처리되었거나 불일치하는 경우)는 불필요한 중복 연산을 막기 위해 무시합니다.

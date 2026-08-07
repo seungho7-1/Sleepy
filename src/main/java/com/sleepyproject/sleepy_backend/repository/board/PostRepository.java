@@ -73,4 +73,32 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Post p SET p.likeCount = :likeCount WHERE p.id = :postId")
     void updateLikeCount(@Param("postId") Long postId, @Param("likeCount") int likeCount);
+
+    /**
+     * 좋아요 수 원자적 증가 (+1) - 동시성 안전
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Post p SET p.likeCount = p.likeCount + 1 WHERE p.id = :postId AND p.likeCount >= 0")
+    void incrementLikeCount(@Param("postId") Long postId);
+
+    /**
+     * 좋아요 수 원자적 감소 (-1, 0 미만 방지) - 동시성 안전
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Post p SET p.likeCount = p.likeCount - 1 WHERE p.id = :postId AND p.likeCount > 0")
+    void decrementLikeCount(@Param("postId") Long postId);
+
+    /**
+     * 댓글 수 원자적 증가 (+1) - 동시성 안전
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :postId")
+    void incrementCommentCount(@Param("postId") Long postId);
+
+    /**
+     * 댓글 수 원자적 감소 (-1, 0 미만 방지) - 동시성 안전
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Post p SET p.commentCount = p.commentCount - 1 WHERE p.id = :postId AND p.commentCount > 0")
+    void decrementCommentCount(@Param("postId") Long postId);
 }

@@ -23,4 +23,18 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     @Query("SELECT COUNT(r), COALESCE(AVG(r.rating), 0.0) FROM Review r WHERE r.product.id = :productId AND r.isHidden = false")
     java.util.List<Object[]> getReviewStatsByProductId(@Param("productId") Long productId);
+
+    /**
+     * 리뷰 좋아요 수 원자적 증가 (+1) - 동시성 안전
+     */
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+    @Query("UPDATE Review r SET r.likeCount = r.likeCount + 1 WHERE r.id = :reviewId AND r.likeCount >= 0")
+    void incrementLikeCount(@Param("reviewId") Long reviewId);
+
+    /**
+     * 리뷰 좋아요 수 원자적 감소 (-1, 0 미만 방지) - 동시성 안전
+     */
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+    @Query("UPDATE Review r SET r.likeCount = r.likeCount - 1 WHERE r.id = :reviewId AND r.likeCount > 0")
+    void decrementLikeCount(@Param("reviewId") Long reviewId);
 }
