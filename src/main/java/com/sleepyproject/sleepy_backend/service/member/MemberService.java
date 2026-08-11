@@ -210,35 +210,7 @@ public class MemberService {
 
         // 엔티티 리스트를 응답 DTO 리스트로 변환하여 반환
         return products.stream()
-                .map(p -> {
-                    List<String> tags = productTagRepository.findByProduct(p).stream()
-                            .map(pt -> pt.getTag().getName())
-                            .collect(Collectors.toList());
-                    return new ProductResponse(
-                            p.getId(),
-                            p.getName(),
-                            p.getPrice(),
-                            p.getDescription(),
-                            p.getFirstImageUrl(),
-                            p.getShopName(),
-                            p.getPurchaseUrl(),
-                            p.getSeller().getId(),
-
-                            p.getTexture(),
-                            p.getScent(),
-                            p.getColor(),
-                            p.getReleaseDate(),
-                            tags,
-                            p.getVideoUrl(),
-                            p.getVideoType(),
-                            p.getImageUrlList(),
-                            p.getDescriptionImageUrlList(),
-                            p.getCategory(),
-                            reviewRepository.countByProductId(p.getId()),
-                            p.getAvgRating(),
-                            p.getSeller().getProfileImageUrl()
-                    );
-                })
+                .map(ProductResponse::from)
                 .collect(Collectors.toList());
     }
 

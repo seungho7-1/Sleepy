@@ -476,3 +476,5 @@ org.springframework.security.access.AccessDeniedException: Access Denied
 2026-08-12 01:32:46.630 [http-nio-8383-exec-2] TRACE o.s.s.w.h.writers.HstsHeaderWriter - Not injecting HSTS header since it did not match request to [Is Secure]
 2026-08-12 01:35:00.005 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 스케줄러 시작 ====
 2026-08-12 01:35:00.195 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 완료 ====
+2026-08-12 01:40:00.015 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 스케줄러 시작 ====
+2026-08-12 01:40:00.161 [scheduling-1] INFO  c.s.s.s.board.PostSyncScheduler - ==== Redis -> DB 동기화 완료 ====
