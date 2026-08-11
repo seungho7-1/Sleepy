@@ -16,6 +16,7 @@ import com.sleepyproject.sleepy_backend.service.notification.NotificationService
 import com.sleepyproject.sleepy_backend.util.BadWordFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 @Service
 public class CommentService {
     private final MemberRepository memberRepository;
+    private final MemberReader memberReader;
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final ReviewRepository reviewRepository;
@@ -34,8 +36,7 @@ public class CommentService {
 
     @Transactional
     public Long createComment(CommentRequest request, String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Member member = memberReader.getMember(username);
 
         //댓글 빌더패턴으로 생성
         Comment.CommentBuilder builder = Comment.builder()

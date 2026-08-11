@@ -17,6 +17,7 @@ import com.sleepyproject.sleepy_backend.service.board.PostRedisService;
 import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -29,6 +30,7 @@ import java.util.Optional;
 public class LikeService {
 
     private final LikeRepository likeRepository;
+    private final MemberReader memberReader;
     private final MemberRepository memberRepository;
     private final PostRepository postRepository;
     private final ReviewRepository reviewRepository;
@@ -48,7 +50,7 @@ public class LikeService {
     public LikeResponseDto toggleLike(LikeRequestDto requestDto, String username) {
 
         //로그인한 유저의 정보조회
-        Member member = memberRepository.findByUsername(username).orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Member member = memberReader.getMember(username);
 
         //요청온 게시판의 타입 얻기(POST,REVIEW 나중에 COMMENT)
         TargetType targetType = requestDto.getTargetType();

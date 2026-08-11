@@ -7,6 +7,7 @@ import com.sleepyproject.sleepy_backend.repository.NotificationRepository;
 import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -26,6 +27,7 @@ import org.springframework.http.HttpMethod;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final MemberReader memberReader;
     private final MemberRepository memberRepository;
 
     @Value("${app.env:dev}")
@@ -39,8 +41,7 @@ public class NotificationService {
 
     @Transactional
     public Notification createNotification(String username, NotificationType type, String message, String relatedUrl) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Member member = memberReader.getMember(username);
         Notification notification = Notification.builder()
                 .member(member)
                 .type(type)
@@ -84,22 +85,19 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<Notification> getNotificationsForMember(String username, org.springframework.data.domain.Pageable pageable) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Member member = memberReader.getMember(username);
         return notificationRepository.findByMemberIdOrderByCreatedAtDesc(member.getId(), pageable);
     }
 
     @Transactional(readOnly = true)
     public List<Notification> getUnreadNotificationsForMember(String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Member member = memberReader.getMember(username);
         return notificationRepository.findByMemberIdAndIsReadFalseOrderByCreatedAtDesc(member.getId());
     }
 
     @Transactional(readOnly = true)
     public long getUnreadCount(String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Member member = memberReader.getMember(username);
         return notificationRepository.countByMemberIdAndIsReadFalse(member.getId());
     }
 
@@ -156,7 +154,7 @@ public class NotificationService {
 
     private void markAsReadInFirebase(Long notificationId, String username) {
         try {
-            Member member = memberRepository.findByUsername(username).orElse(null);
+            Member member = memberReader.getMember(username);
             if (member == null) return;
             
             String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString()).replace("+", "%20");
@@ -182,8 +180,7 @@ public class NotificationService {
 
     @Transactional
     public void markAllAsRead(String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Member member = memberReader.getMember(username);
         
         List<Notification> unreadNotifications = notificationRepository.findByMemberIdAndIsReadFalseOrderByCreatedAtDesc(member.getId());
         if (unreadNotifications.isEmpty()) return;

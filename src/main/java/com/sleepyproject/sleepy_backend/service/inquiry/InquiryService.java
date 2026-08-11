@@ -8,6 +8,7 @@ import com.sleepyproject.sleepy_backend.repository.member.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -22,13 +23,13 @@ import com.sleepyproject.sleepy_backend.service.notification.NotificationService
 public class InquiryService {
 
     private final InquiryRepository inquiryRepository;
+    private final MemberReader memberReader;
     private final MemberRepository memberRepository;
     private final NotificationService notificationService;
 
     @Transactional
     public InquiryDto.Response createInquiry(String username, InquiryDto.Request request) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Member member = memberReader.getMember(username);
 
 
         Inquiry inquiry = Inquiry.builder()
@@ -52,8 +53,7 @@ public class InquiryService {
     // 해당 유저 문의목록 가져오기
     @Transactional(readOnly = true)
     public List<InquiryDto.Response> getMyInquiries(String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Member member = memberReader.getMember(username);
 
         return inquiryRepository.findByMemberIdOrderByCreatedAtDesc(member.getId()).stream()
                 .map(InquiryDto.Response::fromEntity)

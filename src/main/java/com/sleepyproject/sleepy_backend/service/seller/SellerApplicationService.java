@@ -10,6 +10,7 @@ import com.sleepyproject.sleepy_backend.repository.seller.SellerApplicationRepos
 import com.sleepyproject.sleepy_backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class SellerApplicationService {
 
     private final SellerApplicationRepository applicationRepository;
+    private final MemberReader memberReader;
     private final MemberRepository memberRepository;
     private final NotificationService notificationService;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -36,8 +38,7 @@ public class SellerApplicationService {
      */
     @Transactional
     public void submitApplication(String username, String siteUrl, String introduction, String shopName, String snsUrls, String businessNumber) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Member not found"));
+        Member member = memberReader.getMember(username);
 
         // Check if there is already a pending application for this member
         boolean hasPending = applicationRepository.findAll().stream()
@@ -155,8 +156,7 @@ public class SellerApplicationService {
 
     @Transactional(readOnly = true)
     public SellerApplication getLatestApplication(String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Member not found"));
+        Member member = memberReader.getMember(username);
         
         List<SellerApplication> apps = applicationRepository.findAll().stream()
                 .filter(app -> app.getMember().getId().equals(member.getId()))

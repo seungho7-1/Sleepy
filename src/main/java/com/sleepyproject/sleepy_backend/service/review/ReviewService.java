@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sleepyproject.sleepy_backend.api.review.dto.SellerReviewResponse;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
 public class ReviewService {
 
     private final ReviewRepository reviewRepository;
+    private final MemberReader memberReader;
     private final ReviewReportRepository reviewReportRepository;
     private final ReportRepository reportRepository;
     private final ProductRepository productRepository;
@@ -52,8 +54,7 @@ public class ReviewService {
      */
     @Transactional
     public Long create(ReviewRequest request, String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Member member = memberReader.getMember(username);
 
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
@@ -119,8 +120,7 @@ public class ReviewService {
      */
     @Transactional
     public void reportReview(Long reviewId, String username) {
-        Member reporter = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Member reporter = memberReader.getMember(username);
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("리뷰를 찾을 수 없습니다."));
@@ -178,8 +178,7 @@ public class ReviewService {
      */
     @Transactional(readOnly = true)
     public List<SellerReviewResponse> getReviewsBySeller(String username) {
-        Member seller = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
+        Member seller = memberReader.getMember(username);
 
         return reviewRepository.findByProductSellerId(seller.getId()).stream()
                 .map(r -> new SellerReviewResponse(

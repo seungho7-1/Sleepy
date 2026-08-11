@@ -9,6 +9,7 @@ import com.sleepyproject.sleepy_backend.repository.report.ReportRepository;
 import com.sleepyproject.sleepy_backend.service.admin.AdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -18,13 +19,13 @@ import java.time.LocalDateTime;
 public class ReportService {
 
     private final ReportRepository reportRepository;
+    private final MemberReader memberReader;
     private final MemberRepository memberRepository;
     private final AdminService adminService;
 
     @Transactional
     public Long createReport(String username, String targetTypeStr, Long targetId, String reason) {
-        Member reporter = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("신고자를 찾을 수 없습니다."));
+        Member reporter = memberReader.getMember(username);
 
         ReportTargetType targetType = ReportTargetType.valueOf(targetTypeStr.toUpperCase());
 

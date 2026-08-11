@@ -30,6 +30,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final MemberReader memberReader;
     private final MemberRepository memberRepository;
     private final com.sleepyproject.sleepy_backend.repository.product.WishlistRepository wishlistRepository;
     private final TagRepository tagRepository;
@@ -68,8 +70,7 @@ public class ProductService {
      */
     public Long create(ProductCreateRequest request, String username) {
         // 1. 등록하려는 회원(판매자)이 데이터베이스에 존재하는지 검증
-        Member seller = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("판매자를 찾을 수 없습니다."));
+        Member seller = memberReader.getMember(username);
 
         String imagesString = request.getImageUrls() != null ? String.join(",", request.getImageUrls()) : "";
         String descImagesString = request.getDescriptionImageUrls() != null ? String.join(",", request.getDescriptionImageUrls()) : "";
@@ -131,8 +132,7 @@ public class ProductService {
     @CacheEvict(value = "productDetail", key = "#productId")
     public void update(Long productId, ProductUpdateRequest request, String username) {
         // 1. 수정을 요청한 회원 정보 조회
-        Member seller = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+        Member seller = memberReader.getMember(username);
 
         // 2. 수정 대상 상품 정보 조회
         Product product = productRepository.findById(productId)
@@ -183,8 +183,7 @@ public class ProductService {
     @Transactional
     public void delete(Long productId, String username) {
         // 1. 유저 및 상품 정보 조회
-        Member seller = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+        Member seller = memberReader.getMember(username);
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
@@ -299,8 +298,7 @@ public class ProductService {
      */
     @Transactional
     public boolean toggleWishlist(Long productId, String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
+        Member member = memberReader.getMember(username);
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
 
@@ -325,8 +323,7 @@ public class ProductService {
      * @return 유저가 찜한 상품 목록 (ProductResponse 리스트)
      */
     public List<ProductResponse> getWishlist(String username) {
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
+        Member member = memberReader.getMember(username);
 
         List<com.sleepyproject.sleepy_backend.domain.product.Wishlist> list = wishlistRepository.findByMember(member);
         return list.stream().map(w -> {

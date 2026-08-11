@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import com.sleepyproject.sleepy_backend.service.member.MemberReader;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -39,6 +40,7 @@ import static java.util.Arrays.asList;
 public class BoardService {
 
     private final PostRepository postRepository;
+    private final MemberReader memberReader;
     private final CommentRepository commentRepository;
     private final MemberRepository memberRepository;
     private final ReviewRepository reviewRepository;
@@ -51,8 +53,7 @@ public class BoardService {
     @Transactional
     public Long createPost(PostRequest request, String username) {
         //로그인한 유저가 맞는지 아닌지 확인.
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Member member = memberReader.getMember(username);
 
         //새로운 게시글을 만든 빌더패턴을 이용
         Post post = Post.builder()
@@ -129,7 +130,7 @@ public class BoardService {
 
         List<Long> likedPostIds = new ArrayList<>();
         if (username != null) {
-            Member member = memberRepository.findByUsername(username).orElse(null);
+            Member member = memberReader.getMember(username);
             if (member != null) {
                 List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
                 if (!postIds.isEmpty()) {
@@ -181,7 +182,7 @@ public class BoardService {
         boolean isLiked = false;
         boolean isAdmin = false;
         if (username != null) {
-            Member member = memberRepository.findByUsername(username).orElse(null);
+            Member member = memberReader.getMember(username);
             if (member != null) {
                 isLiked = postRedisService.isLikedByUser(post.getId(), com.sleepyproject.sleepy_backend.domain.like.TargetType.POST, username)
                         || postLikeRepository.existsByMemberAndPost(member, post);
@@ -217,7 +218,7 @@ public class BoardService {
 
         boolean isLiked = false;
         if (username != null) {
-            Member member = memberRepository.findByUsername(username).orElse(null);
+            Member member = memberReader.getMember(username);
             if (member != null) {
                 isLiked = postLikeRepository.existsByMemberAndPost(member, post);
             }
@@ -239,8 +240,7 @@ public class BoardService {
     public void updatePost(Long postId, PostRequest request, String username) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Member member = memberReader.getMember(username);
         if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("수정 권한이 없습니다.");
         }
@@ -262,8 +262,7 @@ public class BoardService {
     public void deletePost(Long postId, String username) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        Member member = memberReader.getMember(username);
         if (!post.getMember().getUsername().equals(username) && member.getRole() != com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN) {
             throw new IllegalArgumentException("삭제 권한이 없습니다.");
         }
