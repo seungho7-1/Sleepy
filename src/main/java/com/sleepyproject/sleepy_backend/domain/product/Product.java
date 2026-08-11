@@ -17,6 +17,11 @@ import java.util.List;
  * 슬라임 마켓에 등록된 상품 정보를 나타내는 도메인 엔티티 클래스입니다.
  */
 @Entity
+@Table(indexes = {
+    @Index(name = "idx_product_category", columnList = "category"),
+    @Index(name = "idx_product_created_at", columnList = "createdAt"),
+    @Index(name = "idx_product_seller_id", columnList = "seller_id")
+})
 @Getter
 @Builder
 @AllArgsConstructor

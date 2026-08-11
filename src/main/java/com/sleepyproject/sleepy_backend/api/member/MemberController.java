@@ -44,24 +44,7 @@ public class MemberController {
     @Value("${spring.security.oauth2.client.registration.naver.client-secret:}")
     private String naverSecret;
 
-    @GetMapping("/debug-secrets")
-    public ResponseEntity<?> debugSecrets(Authentication authentication) {
-        if (authentication == null || authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
-            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다."));
-        }
-        return ResponseEntity.ok(Map.of(
-            "kakaoId", mask(kakaoId),
-            "kakaoSecret", mask(kakaoSecret),
-            "naverId", mask(naverId),
-            "naverSecret", mask(naverSecret)
-        ));
-    }
 
-    private String mask(String val) {
-        if (val == null || val.isEmpty()) return "empty";
-        if (val.startsWith("YOUR_")) return "DUMMY: " + val;
-        return val.substring(0, Math.min(val.length(), 4)) + "... (len: " + val.length() + ")";
-    }
 
     /**
      * 신규 회원가입을 처리합니다. (비로그인 허용)
@@ -259,52 +242,7 @@ public class MemberController {
         return ResponseEntity.ok(Map.of("exists", exists));
     }
 
-    @GetMapping("/reset-db")
-    public ResponseEntity<?> resetDb(Authentication authentication) {
-        if (authentication == null || authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
-            return ResponseEntity.status(403).body(Map.of("error", "관리자 권한이 필요합니다."));
-        }
-        try {
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
-            jdbcTemplate.execute("TRUNCATE TABLE board_comment");
-            jdbcTemplate.execute("TRUNCATE TABLE board_post");
-            jdbcTemplate.execute("TRUNCATE TABLE product_tag");
-            jdbcTemplate.execute("TRUNCATE TABLE tag");
-            jdbcTemplate.execute("TRUNCATE TABLE product");
-            jdbcTemplate.execute("TRUNCATE TABLE seller_application");
-            jdbcTemplate.execute("TRUNCATE TABLE member");
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
-            return ResponseEntity.ok(Map.of("message", "데이터베이스의 모든 데이터가 성공적으로 초기화되었습니다!"));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
-        }
-    }
 
-    @PostMapping("/seed-admin")
-    public ResponseEntity<?> seedAdmin() {
-        boolean adminExists = memberRepository.findAll().stream().anyMatch(m -> m.getRole() == com.sleepyproject.sleepy_backend.domain.member.Role.ADMIN);
-        if (adminExists) {
-            return ResponseEntity.status(403).body(Map.of("error", "이미 관리자 계정이 존재합니다."));
-        }
-        try {
-            SignupRequest request = new SignupRequest();
-            request.setUsername("admin");
-            request.setEmail("admin@sleepy.com");
-            request.setPassword("admin1234");
-            request.setNickname("관리자");
-            request.setRole("ADMIN");
-            memberService.signup(request);
-            
-            com.sleepyproject.sleepy_backend.domain.member.Member member = memberRepository.findByUsername("admin")
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
-            member.completeOnboarding();
-            memberRepository.save(member);
-            
-            return ResponseEntity.ok(Map.of("message", "관리자 계정(admin / admin1234)이 생성되었습니다."));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
-        }
-    }
 
     @PostMapping("/password/send-code")
     public ResponseEntity<?> sendPasswordResetCode(@RequestBody PasswordResetSendCodeRequest request) {
