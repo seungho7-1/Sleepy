@@ -33,6 +33,7 @@ public class LikeAsyncService {
 
         // 2. Redis가 알려준 isLiked가 true인데, DB에는 아직 데이터가 없다면 -> [좋아요 추가]
         if (isLiked && existing.isEmpty()) {
+            //좋아요 저장.
             likeRepository.save(Likes.builder()
                     .member(member)
                     .targetId(targetId)
@@ -41,6 +42,7 @@ public class LikeAsyncService {
 
             // 원자적 UPDATE 쿼리 사용 → Race Condition 방지
             if (targetType == TargetType.POST) {
+                //해당 좋아요게시글이 = POST면?
                 postRepository.incrementLikeCount(targetId);
             } else {
                 reviewRepository.incrementLikeCount(targetId);
@@ -57,6 +59,5 @@ public class LikeAsyncService {
                 reviewRepository.decrementLikeCount(targetId);
             }
         }
-        // 그 외의 상태 (이미 처리되었거나 불일치하는 경우)는 불필요한 중복 연산을 막기 위해 무시합니다.
     }
 }

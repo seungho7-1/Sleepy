@@ -31,6 +31,12 @@ public class NotificationService {
     @Value("${app.env:dev}")
     private String appEnv;
 
+    @Value("${firebase.project-id:sleepy-frontend-eac65}")
+    private String firebaseProjectId;
+
+    @Value("${firebase.api-key:AIzaSyCko0AeT3hjwvGBlGydpJ-PjA445Txswxw}")
+    private String firebaseApiKey;
+
     @Transactional
     public Notification createNotification(String username, NotificationType type, String message, String relatedUrl) {
         Member member = memberRepository.findByUsername(username)
@@ -42,7 +48,7 @@ public class NotificationService {
                 .relatedUrl(relatedUrl)
                 .build();
         Notification saved = notificationRepository.save(notification);
-        sendToFirebase(saved, member);
+        java.util.concurrent.CompletableFuture.runAsync(() -> sendToFirebase(saved, member));
         return saved;
     }
     
@@ -55,7 +61,7 @@ public class NotificationService {
                 .relatedUrl(relatedUrl)
                 .build();
         Notification saved = notificationRepository.save(notification);
-        sendToFirebase(saved, member);
+        java.util.concurrent.CompletableFuture.runAsync(() -> sendToFirebase(saved, member));
         return saved;
     }
 
@@ -99,26 +105,23 @@ public class NotificationService {
 
     @Transactional
     public void markAsRead(Long notificationId, String username) {
-        Notification notification = notificationRepository.findById(notificationId).orElse(null);
+        Notification notification = notificationRepository.findById(notificationId)
+            .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
         
-        if (notification != null) {
-            if (!notification.getMember().getUsername().equals(username)) {
-                throw new IllegalArgumentException("No permission");
-            }
-            notification.markAsRead();
+        if (!notification.getMember().getUsername().equals(username)) {
+            throw new IllegalArgumentException("No permission");
         }
+        notification.markAsRead();
         
-        markAsReadInFirebase(notificationId, username);
+        java.util.concurrent.CompletableFuture.runAsync(() -> markAsReadInFirebase(notificationId, username));
     }
 
     private void sendToFirebase(Notification notification, Member member) {
         try {
-            String projectId = "sleepy-frontend-eac65";
-            String apiKey = "AIzaSyCko0AeT3hjwvGBlGydpJ-PjA445Txswxw";
             String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString()).replace("+", "%20");
             String collection = "dev".equals(appEnv) ? "dev_notifications" : "notifications";
             String urlStr = String.format("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/%s/%s/userNotifications/%d?key=%s", 
-                projectId, collection, encodedNickname, notification.getId(), apiKey);
+                firebaseProjectId, collection, encodedNickname, notification.getId(), firebaseApiKey);
 
             String jsonBody = String.format(
                 "{\"fields\": {" +
@@ -156,12 +159,10 @@ public class NotificationService {
             Member member = memberRepository.findByUsername(username).orElse(null);
             if (member == null) return;
             
-            String projectId = "sleepy-frontend-eac65";
-            String apiKey = "AIzaSyCko0AeT3hjwvGBlGydpJ-PjA445Txswxw";
             String encodedNickname = URLEncoder.encode(member.getNickname(), StandardCharsets.UTF_8.toString()).replace("+", "%20");
             String collection = "dev".equals(appEnv) ? "dev_notifications" : "notifications";
             String urlStr = String.format("https://firestore.googleapis.com/v1/projects/%s/databases/(default)/documents/%s/%s/userNotifications/%d?updateMask.fieldPaths=isRead&key=%s", 
-                projectId, collection, encodedNickname, notificationId, apiKey);
+                firebaseProjectId, collection, encodedNickname, notificationId, firebaseApiKey);
 
             String jsonBody = "{\"fields\": {\"isRead\": {\"booleanValue\": true}}}";
 
@@ -185,10 +186,16 @@ public class NotificationService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         List<Notification> unreadNotifications = notificationRepository.findByMemberIdAndIsReadFalseOrderByCreatedAtDesc(member.getId());
+        if (unreadNotifications.isEmpty()) return;
         
-        for (Notification notification : unreadNotifications) {
-            notification.markAsRead();
-            markAsReadInFirebase(notification.getId(), username);
-        }
+        // 벌크 업데이트로 한 번에 DB 처리
+        notificationRepository.markAllAsReadByMemberId(member.getId());
+        
+        // 파이어베이스 동기화 비동기 병렬 처리
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            for (Notification notification : unreadNotifications) {
+                markAsReadInFirebase(notification.getId(), username);
+            }
+        });
     }
 }

@@ -12,6 +12,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     org.springframework.data.domain.Page<Notification> findByMemberIdOrderByCreatedAtDesc(Long memberId, org.springframework.data.domain.Pageable pageable);
     List<Notification> findByMemberIdAndIsReadFalseOrderByCreatedAtDesc(Long memberId);
     long countByMemberIdAndIsReadFalse(Long memberId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE Notification n SET n.isRead = true WHERE n.member.id = :memberId AND n.isRead = false")
+    int markAllAsReadByMemberId(@org.springframework.data.repository.query.Param("memberId") Long memberId);
+
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("DELETE FROM Notification n WHERE n.member.id = :memberId")
     void deleteByMemberId(@org.springframework.data.repository.query.Param("memberId") Long memberId);

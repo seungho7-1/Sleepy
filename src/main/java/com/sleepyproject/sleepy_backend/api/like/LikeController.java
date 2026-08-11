@@ -20,6 +20,7 @@ public class LikeController {
 
     private final LikeService likeService;
 
+    //현재는 게시글과 리뷰 좋아요에만 적용중.
     /**
      * 특정 게시글/댓글에 대해 좋아요를 등록하거나 해제(토글)합니다. (인증 필요)
      * @param requestDto       좋아요를 토글할 대상의 ID (게시글 또는 댓글), 타입 (POST 또는 COMMENT)
@@ -28,9 +29,8 @@ public class LikeController {
      */
     @PostMapping("/toggle")
     public ResponseEntity<LikeResponseDto> toggleLike(@RequestBody LikeRequestDto requestDto, Authentication authentication) {
-        //boolean isLiked = likeService.toggleLike(requestDto.getTargetId(),requestDto.getTargetType(), authentication.getName());
+        //
         LikeResponseDto responseDto = likeService.toggleLike(requestDto, authentication.getName());
-        //return ResponseEntity.ok(Map.of("liked", isLiked));
         if (responseDto.isLiked()) {
             // 좋아요가 새로 생성(등록)된 경우: 201 Created
             return ResponseEntity.status(HttpStatus.CREATED).body(responseDto);

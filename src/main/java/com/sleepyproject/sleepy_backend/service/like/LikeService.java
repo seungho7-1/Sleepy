@@ -2,6 +2,7 @@ package com.sleepyproject.sleepy_backend.service.like;
 
 import com.sleepyproject.sleepy_backend.api.like.dto.LikeRequestDto;
 import com.sleepyproject.sleepy_backend.api.like.dto.LikeResponseDto;
+import com.sleepyproject.sleepy_backend.domain.board.BoardType;
 import com.sleepyproject.sleepy_backend.domain.board.Post;
 import com.sleepyproject.sleepy_backend.domain.like.Likes;
 import com.sleepyproject.sleepy_backend.domain.like.TargetType;
@@ -49,7 +50,7 @@ public class LikeService {
         //로그인한 유저의 정보조회
         Member member = memberRepository.findByUsername(username).orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        //요청혼 게시판의 타입 얻기(POST,REVIEW 나중에 COMMENT)
+        //요청온 게시판의 타입 얻기(POST,REVIEW 나중에 COMMENT)
         TargetType targetType = requestDto.getTargetType();
 
         // Redis에서만 토글 ->
@@ -57,16 +58,18 @@ public class LikeService {
 
         // DB는 Async에게 맡김
         likeAsyncService.syncLikeToDatabase(member, requestDto.getTargetId(), targetType, isLiked);
-        // 알림
+
+        // 좋아요가 새로 추가됐을 때, 게시글/리뷰 작성자에게 알림을 보내는 메서드
         if (isLiked) {
-
+            //타겟타입에 게시글이면?
             if (targetType == TargetType.POST) {
-
+                //targetId를 찾아보자.
                 Post post = postRepository.findById(requestDto.getTargetId()).orElseThrow();
                 if (!post.getMember().getId().equals(member.getId())) {
-                    String url = post.getBoardType() == com.sleepyproject.sleepy_backend.domain.board.BoardType.MEDIA 
+                    String url = post.getBoardType() == BoardType.MEDIA
                         ? "/shorts?postId=" + post.getId() 
                         : "/community/" + post.getId();
+                    //해당 게시글 유저에게 알림을 발송
                     notificationService.createNotificationByMember(post.getMember(), NotificationType.NEW_LIKE, member.getNickname() + "님이 회원님의 게시글을 좋아합니다.", url);
                 }
 
@@ -74,6 +77,7 @@ public class LikeService {
 
                 Review review = reviewRepository.findById(requestDto.getTargetId()).orElseThrow();
                 if (!review.getMember().getId().equals(member.getId())) {
+                    //해당 리뷰 유저에게 알림을 발송
                     notificationService.createNotificationByMember(review.getMember(), NotificationType.NEW_LIKE, member.getNickname() + "님이 회원님의 리뷰를 좋아합니다.", "/product/" + review.getProduct().getId());
                 }
             }
