@@ -210,7 +210,7 @@ public class ProductService {
      * @param pageable 페이징 및 정렬 조건 (Spring의 Pageable 객체)
      * @return DTO인 ProductResponse로 변환된 Page 객체 반환
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public Page<ProductResponse> getProducts(String category, String keyword, Long sellerId, Pageable pageable) {
         Page<Product> products;
 

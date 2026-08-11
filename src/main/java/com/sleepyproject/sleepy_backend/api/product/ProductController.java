@@ -61,6 +61,11 @@ public class ProductController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort
     ) {
+        // 보안/성능: 악의적인 대량 데이터 요청(OOM) 방지를 위해 size 최대값 제한
+        if (size > 100) {
+            size = 100;
+        }
+
         // sort 파라미터 파싱 (예: "reviewCount,desc")
         String[] sortParts = sort.split(",");
         String sortField = sortParts[0].trim();
