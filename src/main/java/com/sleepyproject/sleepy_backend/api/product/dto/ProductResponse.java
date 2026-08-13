@@ -56,4 +56,34 @@ public class ProductResponse {
     private long reviewCount; // 리뷰 수
     private double avgRating; // 평균 별점
     private String sellerProfileImageUrl; // 판매자 프로필 이미지
+
+    public static ProductResponse from(com.sleepyproject.sleepy_backend.domain.product.Product p) {
+        java.util.List<String> tags = p.getProductTags().stream()
+                .map(pt -> pt.getTag().getName())
+                .collect(java.util.stream.Collectors.toList());
+                
+        return new ProductResponse(
+                p.getId(),
+                p.getName(),
+                p.getPrice(),
+                p.getDescription(),
+                p.getFirstImageUrl(),
+                p.getShopName(),
+                p.getPurchaseUrl(),
+                p.getSeller().getId(),
+                p.getTexture(),
+                p.getScent(),
+                p.getColor(),
+                p.getReleaseDate(),
+                tags,
+                p.getVideoUrl(),
+                p.getVideoType(),
+                p.getImageUrlList(),
+                p.getDescriptionImageUrlList(),
+                p.getCategory(),
+                p.getReviewCount(),
+                p.getAvgRating(),
+                p.getSeller().getProfileImageUrl()
+        );
+    }
 }

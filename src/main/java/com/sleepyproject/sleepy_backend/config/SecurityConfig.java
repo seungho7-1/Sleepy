@@ -66,6 +66,7 @@ public class SecurityConfig {
                         jwtFilter(),
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class
                 )
+                //jwt를 먼저 실행
 
                 // URL 권한 설정
                 .authorizeHttpRequests(auth -> auth

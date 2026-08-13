@@ -36,12 +36,12 @@ public class DatabaseInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         // Create default accounts and seed data if admin does not exist
-        if (!memberRepository.existsByUsername("admin")) {
+        if (!memberRepository.existsByUsername("admin_dummy")) {
             log.info("Creating default accounts and seed data...");
             
             // Admin
             Member admin = Member.builder()
-                    .username("admin")
+                    .username("admin_dummy")
                     .email("admin@sleepy.com")
                     .password(passwordEncoder.encode("admin1234"))
                     .nickname("관리자")
