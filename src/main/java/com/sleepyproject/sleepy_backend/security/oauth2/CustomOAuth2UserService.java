@@ -60,7 +60,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
 
         boolean isNewUser = false;
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
+        Optional<Member> memberOptional = memberRepository.findByUsername(email);
         Member member;
         if (memberOptional.isPresent()) {
             member = memberOptional.get();

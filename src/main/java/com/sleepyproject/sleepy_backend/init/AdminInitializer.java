@@ -38,6 +38,11 @@ public class AdminInitializer implements ApplicationRunner {
                         // Optional: update roles or passwords if needed, but usually we just skip.
                     },
                     () -> {
+                        if (memberRepository.existsByUsername(account.getUsername())) {
+                            log.warn("Failed to create admin account {}: Username '{}' is already taken by another account.", account.getEmail(), account.getUsername());
+                            return;
+                        }
+
                         log.info("Creating new admin account: {}", account.getEmail());
                         Member adminMember = Member.builder()
                                 .email(account.getEmail())
