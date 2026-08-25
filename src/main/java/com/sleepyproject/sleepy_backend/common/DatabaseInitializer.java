@@ -162,6 +162,5 @@ public class DatabaseInitializer implements CommandLineRunner {
             commentRepository.save(comment1);
 
             log.info("Default seed data provisioned successfully!");
-        }
     }
 }
