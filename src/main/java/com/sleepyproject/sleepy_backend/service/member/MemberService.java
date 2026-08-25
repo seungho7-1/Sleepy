@@ -275,6 +275,9 @@ public class MemberService {
     public void updateEmail(String username, String email) {
         Member member = memberRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+        if (member.getOauthProvider() != null) {
+            throw new IllegalArgumentException("소셜 로그인 계정은 이메일을 변경할 수 없습니다.");
+        }
         if (memberRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("이미 사용중인 이메일입니다.");
         }
@@ -292,6 +295,9 @@ public class MemberService {
             member.updateProfileImage(profileImageUrl);
         }
         if (email != null && !email.isBlank()) {
+            if (member.getOauthProvider() != null) {
+                throw new IllegalArgumentException("소셜 로그인 계정은 이메일을 변경할 수 없습니다.");
+            }
             if (!email.equals(member.getEmail()) && memberRepository.existsByEmail(email)) {
                 throw new IllegalArgumentException("이미 사용중인 이메일입니다.");
             }
